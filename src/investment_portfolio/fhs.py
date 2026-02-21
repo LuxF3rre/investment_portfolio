@@ -111,8 +111,11 @@ def _ratio_scaling_method(
     ewma_decay: float,
 ) -> np.ndarray:
     """Practitioner FHS — scale multi-period returns by volatility ratio."""
-    recent_rates = prices.iloc[-volatility_window:]
-    current_volatility = float(np.std(recent_rates.ewm(com=ewma_decay).mean()))
+    pct_returns = prices.pct_change().dropna()
+
+    current_volatility = float(
+        pct_returns.iloc[-volatility_window:].ewm(alpha=1 - ewma_decay).std().iloc[-1]
+    )
 
     max_periods = len(prices) - forecast_horizon
     returns: list[float] = []
@@ -124,13 +127,13 @@ def _ratio_scaling_method(
             prices.iloc[end_idx] - prices.iloc[start_idx]
         ) / prices.iloc[start_idx]
 
-        hist_window_start = max(0, -i - volatility_window)
-        hist_window_end = -i
-        historical_rates = prices.iloc[hist_window_start:hist_window_end]
+        end_pos = len(prices) - i
+        start_pos = max(0, end_pos - volatility_window)
+        hist_returns = pct_returns.iloc[start_pos:end_pos]
 
-        if len(historical_rates) >= volatility_window:
+        if len(hist_returns) >= volatility_window:
             historical_volatility = float(
-                np.std(historical_rates.ewm(com=ewma_decay).mean())
+                hist_returns.ewm(alpha=1 - ewma_decay).std().iloc[-1]
             )
             if historical_volatility > 0:
                 scaling_factor = current_volatility / historical_volatility
@@ -145,7 +148,6 @@ def _standardized_residuals_method(
     *,
     prices: pd.Series,
     forecast_horizon: int,
-    volatility_window: int,
     ewma_decay: float,
     rng: np.random.Generator,
     num_simulations: int,
@@ -154,7 +156,7 @@ def _standardized_residuals_method(
 
     Steps:
         1. Compute daily log-returns.
-        2. Compute EWMA volatility (rolling std of EWMA-smoothed returns).
+        2. Compute conditional volatility via EWMA std of log-returns.
         3. Standardize: z_t = r_t / vol_t.
         4. Bootstrap ``num_simulations`` paths of ``forecast_horizon`` days.
         5. Re-scale each sampled residual by current conditional volatility,
@@ -162,10 +164,9 @@ def _standardized_residuals_method(
     """
     log_returns = np.diff(np.log(prices.values))
 
-    ewma_series = pd.Series(log_returns).ewm(com=ewma_decay).mean()
-    rolling_vol = ewma_series.rolling(window=volatility_window).std()
+    ewma_vol = pd.Series(log_returns).ewm(alpha=1 - ewma_decay).std()
 
-    vol_values = rolling_vol.values
+    vol_values = ewma_vol.values
     eps: float = 1e-12
     valid = vol_values > eps
     z = log_returns[valid] / vol_values[valid]
@@ -224,7 +225,7 @@ def calculate_filtered_historical_returns(
         prices: Time series of prices.
         forecast_horizon: Number of periods ahead to forecast. Must be positive.
         volatility_window: Window size for volatility estimation. Must be positive.
-        ewma_decay: Decay factor (``com`` parameter) for EWMA.
+        ewma_decay: EWMA decay factor (lambda). 0.94 is the RiskMetrics standard.
         apply_filter: If ``True``, apply volatility scaling.
         method: Which FHS method to use.
         rng: Random generator for the residuals method.
@@ -270,7 +271,6 @@ def calculate_filtered_historical_returns(
             return _standardized_residuals_method(
                 prices=prices,
                 forecast_horizon=forecast_horizon,
-                volatility_window=volatility_window,
                 ewma_decay=ewma_decay,
                 rng=rng,
                 num_simulations=num_simulations,
@@ -291,7 +291,7 @@ def calculate_return_statistics(*, returns: np.ndarray) -> ReturnStatistics:
     return ReturnStatistics(
         mean=float(np.mean(returns)),
         median=float(np.median(returns)),
-        std=float(np.std(returns)),
+        std=float(np.std(returns, ddof=1)),
         skewness=float(scipy.stats.skew(returns)),
         kurtosis=float(scipy.stats.kurtosis(returns)),
         minimum=float(np.min(returns)),
@@ -349,6 +349,7 @@ def calculate_fhs_risk_metrics(
     forecasted_prices: np.ndarray,
     current_price: float,
     risk_free_rate: float = 0.0,
+    time_horizon: float = 1.0,
 ) -> FHSRiskMetrics:
     """Derive risk metrics from FHS results.
 
@@ -356,7 +357,8 @@ def calculate_fhs_risk_metrics(
         filtered_returns: Array of filtered historical returns.
         forecasted_prices: Corresponding forecasted prices.
         current_price: Starting price.
-        risk_free_rate: Risk-free rate for Sharpe ratio calculation.
+        risk_free_rate: Annual risk-free rate for Sharpe ratio calculation.
+        time_horizon: Forecast period in years for compounding the risk-free rate.
 
     Returns:
         Risk metrics.
@@ -367,9 +369,10 @@ def calculate_fhs_risk_metrics(
     cvar_95 = float(returns_pct[returns_pct <= var_95].mean())
 
     mean_return = float(np.mean(filtered_returns))
-    return_std = float(np.std(filtered_returns))
+    return_std = float(np.std(filtered_returns, ddof=1))
     eps: float = 1e-12
-    sharpe = (mean_return - risk_free_rate) / return_std if return_std > eps else 0.0
+    rf_period = (1 + risk_free_rate) ** time_horizon - 1
+    sharpe = (mean_return - rf_period) / return_std if return_std > eps else 0.0
 
     expected_price = float(np.mean(forecasted_prices))
     prob_appreciation = float((forecasted_prices > current_price).mean())

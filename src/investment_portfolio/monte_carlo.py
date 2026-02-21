@@ -185,7 +185,7 @@ def calculate_annualized_volatility(*, prices: pd.Series) -> float:
     if total_calendar_days <= 0:
         ann_factor = 252.0
     else:
-        ann_factor = len(prices) * 365.25 / total_calendar_days
+        ann_factor = (len(prices) - 1) * 365.25 / total_calendar_days
 
     return float(daily_std * math.sqrt(ann_factor))
 
@@ -213,6 +213,7 @@ def calculate_simulation_risk_metrics(
     terminal_prices: np.ndarray,
     current_price: float,
     risk_free_rate: float = 0.04,
+    time_horizon: float = 1.0,
 ) -> SimulationRiskMetrics:
     """Derive risk metrics from terminal price distribution.
 
@@ -220,6 +221,7 @@ def calculate_simulation_risk_metrics(
         terminal_prices: 1-D array of simulated terminal prices.
         current_price: Starting price.
         risk_free_rate: Annual risk-free rate for Sharpe calculation.
+        time_horizon: Forecast period in years for compounding the risk-free rate.
 
     Returns:
         Risk metrics.
@@ -232,7 +234,8 @@ def calculate_simulation_risk_metrics(
     mean_return = float(returns.mean())
     return_std = float(returns.std())
     eps: float = 1e-12
-    sharpe = (mean_return - risk_free_rate) / return_std if return_std > eps else 0.0
+    rf_period = (1 + risk_free_rate) ** time_horizon - 1
+    sharpe = (mean_return - rf_period) / return_std if return_std > eps else 0.0
     prob_profit = float((terminal_prices > current_price).mean())
 
     return SimulationRiskMetrics(
