@@ -139,7 +139,7 @@ with st.sidebar:
             step=0.01,
             help=(
                 "Controls conservatism of relativistic measures. "
-                "Lower values behave like CVaR/CDaR, higher values "
+                "Lower values behave like EVaR/EDaR, higher values "
                 "approach worst-case scenarios."
             ),
         )
@@ -335,7 +335,7 @@ There are 24 risk measures grouped into three categories.
   the spread of extreme outcomes. More conservative than
   CVaR Range.
 - **RLVaR Range** — A flexible middle ground between
-  CVaR Range and worst-case range.
+  EVaR Range and worst-case range.
 - **Range** — Gap between the best and worst observed
   returns. Most intuitive but sensitive to single outliers.
 
@@ -365,7 +365,7 @@ There are 24 risk measures grouped into three categories.
   on CVaR using information theory. More conservative —
   assumes worse scenarios are possible.
 - **Relativistic Value at Risk (RLVaR)** — Flexible
-  measure between CVaR and worst case. Adjustable
+  measure between EVaR and worst case. Adjustable
   conservatism level.
 - **Worst Realization** — The single worst return ever
   observed. The most conservative measure — optimizes for
@@ -391,7 +391,7 @@ be?
   on CDaR. More conservative — assumes deeper drawdowns
   are possible.
 - **Relativistic Drawdown at Risk (RLDaR)** — Flexible
-  measure between CDaR and worst-case drawdown.
+  measure between EDaR and worst-case drawdown.
 
 ---
 
