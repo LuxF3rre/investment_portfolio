@@ -256,8 +256,8 @@ _d = st.session_state["fhs_data"]
 c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("Current", _fmt_price(_d["current_price"]))
 c2.metric("Expected", _fmt_price(_d["risk"].expected_price))
-c3.metric("VaR 95%", f"{_d['risk'].var_95:.2f}%")
-c4.metric("CVaR 95%", f"{_d['risk'].cvar_95:.2f}%")
+c3.metric("VaR 95%", f"{_d['risk'].var_95:.2%}")
+c4.metric("CVaR 95%", f"{_d['risk'].cvar_95:.2%}")
 c5.metric("Sharpe", f"{_d['risk'].sharpe:.3f}")
 
 tab_hist, tab_ret, tab_dist, tab_pct = st.tabs(

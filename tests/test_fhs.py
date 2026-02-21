@@ -64,6 +64,10 @@ class TestCalculateFilteredHistoricalReturns:
             ("forecast_horizon", -1, "forecast_horizon must be positive"),
             ("volatility_window", 0, "volatility_window must be positive"),
             ("volatility_window", -5, "volatility_window must be positive"),
+            ("ewma_decay", 0.0, "ewma_decay must be between 0 and 1"),
+            ("ewma_decay", 1.0, "ewma_decay must be between 0 and 1"),
+            ("ewma_decay", -0.5, "ewma_decay must be between 0 and 1"),
+            ("ewma_decay", 1.5, "ewma_decay must be between 0 and 1"),
             ("num_simulations", 0, "num_simulations must be positive"),
         ],
     )
@@ -71,7 +75,7 @@ class TestCalculateFilteredHistoricalReturns:
         self,
         sample_fx_rates: pd.Series,
         field: str,
-        value: int,
+        value: int | float,
         match: str,
     ) -> None:
         defaults: dict[str, object] = {

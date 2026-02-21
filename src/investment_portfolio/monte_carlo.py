@@ -152,10 +152,10 @@ def geometric_brownian_motion_paths(
     drift = (annual_return - 0.5 * annual_volatility**2) * dt
     diffusion = annual_volatility * math.sqrt(dt)
 
+    log_increments = drift + diffusion * shocks
     prices = np.empty((num_steps + 1, num_simulations))
     prices[0] = current_price
-    for t in range(1, num_steps + 1):
-        prices[t] = prices[t - 1] * np.exp(drift + diffusion * shocks[t - 1])
+    prices[1:] = current_price * np.exp(np.cumsum(log_increments, axis=0))
     return prices
 
 
@@ -199,12 +199,13 @@ def calculate_simulation_percentiles(*, values: np.ndarray) -> SimulationPercent
     Returns:
         Percentile values.
     """
+    p5, p25, p50, p75, p95 = np.percentile(values, [5, 25, 50, 75, 95])
     return SimulationPercentiles(
-        p5=float(np.percentile(values, 5)),
-        p25=float(np.percentile(values, 25)),
-        p50=float(np.percentile(values, 50)),
-        p75=float(np.percentile(values, 75)),
-        p95=float(np.percentile(values, 95)),
+        p5=float(p5),
+        p25=float(p25),
+        p50=float(p50),
+        p75=float(p75),
+        p95=float(p95),
     )
 
 

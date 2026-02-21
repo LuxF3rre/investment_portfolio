@@ -332,26 +332,28 @@ def build_efficient_frontier(
         returns_arr[i] = float(mu @ w_arr) * ann_factor
         risks_arr[i] = float(np.sqrt(w_arr @ cov_mat @ w_arr)) * sqrt_ann
 
-    return risks_arr, returns_arr, frontier
+    # Sort by risk so the frontier plots as a smooth curve.
+    order = np.argsort(risks_arr)
+    return risks_arr[order], returns_arr[order], frontier.iloc[:, order]
 
 
-def calculate_asset_statistics(
-    *, prices: pd.DataFrame, trading_days: int = TRADING_DAYS
-) -> dict[str, dict[str, float]]:
+def calculate_asset_statistics(*, prices: pd.DataFrame) -> dict[str, dict[str, float]]:
     """Compute annualized return and volatility per asset.
 
+    Infers the annualization factor from the DatetimeIndex.
+
     Args:
-        prices: Multi-asset price DataFrame.
-        trading_days: Trading days per year for annualization.
+        prices: Multi-asset price DataFrame with a DatetimeIndex.
 
     Returns:
         Mapping of ticker to ``{"annualized_return": …, "annualized_volatility": …}``.
     """
     log_returns = np.log(prices / prices.shift(1)).dropna()
+    ann_factor = _infer_ann_factor(index=log_returns.index)
     result: dict[str, dict[str, float]] = {}
     for col in prices.columns:
-        ann_ret = float(log_returns[col].mean() * trading_days)
-        ann_vol = float(log_returns[col].std() * math.sqrt(trading_days))
+        ann_ret = float(log_returns[col].mean() * ann_factor)
+        ann_vol = float(log_returns[col].std() * math.sqrt(ann_factor))
         result[col] = {
             "annualized_return": ann_ret,
             "annualized_volatility": ann_vol,

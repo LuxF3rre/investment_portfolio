@@ -85,8 +85,8 @@ class FHSRiskMetrics:
     """Risk metrics from Filtered Historical Simulation.
 
     Attributes:
-        var_95: Value at Risk at 95% confidence (percentage).
-        cvar_95: Conditional VaR (percentage).
+        var_95: Value at Risk at 95% confidence (decimal fraction).
+        cvar_95: Conditional VaR (decimal fraction).
         expected_price: Expected forecasted price.
         expected_return: Mean filtered return.
         return_std: Standard deviation of filtered returns.
@@ -117,31 +117,37 @@ def _ratio_scaling_method(
         pct_returns.iloc[-volatility_window:].ewm(alpha=1 - ewma_decay).std().iloc[-1]
     )
 
-    max_periods = len(prices) - forecast_horizon
-    returns: list[float] = []
+    price_vals = prices.values
+    # Multi-period returns: (P[t] - P[t - horizon]) / P[t - horizon]
+    # Exclude the last observation (current) so we only use historical windows.
+    end_prices = price_vals[forecast_horizon:-1]
+    start_prices = price_vals[: -(forecast_horizon + 1)]
+    historical_returns = (end_prices - start_prices) / start_prices
+    # Reverse so newest windows come first (matches original loop order).
+    historical_returns = historical_returns[::-1]
 
-    for i in range(1, max_periods):
-        end_idx = -i
-        start_idx = -i - forecast_horizon
-        historical_return = (
-            prices.iloc[end_idx] - prices.iloc[start_idx]
-        ) / prices.iloc[start_idx]
+    # EWMA trailing volatility at every point in the daily-return series.
+    ewma_vol = pct_returns.ewm(alpha=1 - ewma_decay).std().values
+    # The EWMA vol at position j corresponds to the window ending at j.
+    # For each multi-period window ending at price index (forecast_horizon + k),
+    # the daily-return index is (forecast_horizon + k - 1) (pct_returns is
+    # one element shorter than prices because of .dropna()).
+    # After reversal, element i maps to k = len(end_prices) - 1 - i,
+    # so daily-return index = forecast_horizon + k - 1.
+    n_ret = len(historical_returns)
+    vol_indices = np.arange(n_ret)[::-1] + forecast_horizon - 1
+    hist_vols = ewma_vol[vol_indices]
 
-        end_pos = len(prices) - i
-        start_pos = max(0, end_pos - volatility_window)
-        hist_returns = pct_returns.iloc[start_pos:end_pos]
+    # Build a mask for windows with enough data to have a reliable vol
+    # and a non-zero historical volatility.
+    enough_data = vol_indices >= (volatility_window - 1)
+    nonzero_vol = hist_vols > 0
+    scalable = enough_data & nonzero_vol
 
-        if len(hist_returns) >= volatility_window:
-            historical_volatility = float(
-                hist_returns.ewm(alpha=1 - ewma_decay).std().iloc[-1]
-            )
-            if historical_volatility > 0:
-                scaling_factor = current_volatility / historical_volatility
-                historical_return *= scaling_factor
+    result = historical_returns.copy()
+    result[scalable] *= current_volatility / hist_vols[scalable]
 
-        returns.append(float(historical_return))
-
-    return np.array(returns)
+    return result
 
 
 def _standardized_residuals_method(
@@ -186,18 +192,11 @@ def _unfiltered_returns(
     forecast_horizon: int,
 ) -> np.ndarray:
     """Raw multi-period simple returns without any volatility filtering."""
-    max_periods = len(prices) - forecast_horizon
-    returns: list[float] = []
-
-    for i in range(1, max_periods):
-        end_idx = -i
-        start_idx = -i - forecast_horizon
-        historical_return = (
-            prices.iloc[end_idx] - prices.iloc[start_idx]
-        ) / prices.iloc[start_idx]
-        returns.append(float(historical_return))
-
-    return np.array(returns)
+    price_vals = prices.values
+    end_prices = price_vals[forecast_horizon:-1]
+    start_prices = price_vals[: -(forecast_horizon + 1)]
+    returns = (end_prices - start_prices) / start_prices
+    return returns[::-1].copy()
 
 
 def calculate_filtered_historical_returns(
@@ -243,6 +242,9 @@ def calculate_filtered_historical_returns(
         raise ValueError(msg)
     if volatility_window <= 0:
         msg = "volatility_window must be positive"
+        raise ValueError(msg)
+    if not 0 < ewma_decay < 1:
+        msg = "ewma_decay must be between 0 and 1 (exclusive)"
         raise ValueError(msg)
     if num_simulations <= 0:
         msg = "num_simulations must be positive"
@@ -363,10 +365,8 @@ def calculate_fhs_risk_metrics(
     Returns:
         Risk metrics.
     """
-    returns_pct = filtered_returns * 100
-
-    var_95 = float(np.percentile(returns_pct, 5))
-    cvar_95 = float(returns_pct[returns_pct <= var_95].mean())
+    var_95 = float(np.percentile(filtered_returns, 5))
+    cvar_95 = float(filtered_returns[filtered_returns <= var_95].mean())
 
     mean_return = float(np.mean(filtered_returns))
     return_std = float(np.std(filtered_returns, ddof=1))
