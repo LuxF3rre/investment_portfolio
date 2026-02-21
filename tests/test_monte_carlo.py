@@ -80,7 +80,7 @@ class TestGeometricBrownianMotion:
         }
         defaults[field] = value
         with pytest.raises(ValueError, match=match):
-            geometric_brownian_motion(**defaults)
+            geometric_brownian_motion(**defaults)  # type: ignore[invalid-argument-type]
 
 
 class TestGeometricBrownianMotionPaths:
@@ -152,7 +152,7 @@ class TestGeometricBrownianMotionPaths:
         }
         defaults[field] = value
         with pytest.raises(ValueError, match=match):
-            geometric_brownian_motion_paths(**defaults)
+            geometric_brownian_motion_paths(**defaults)  # type: ignore[invalid-argument-type]
 
 
 class TestCalculateAnnualizedVolatility:

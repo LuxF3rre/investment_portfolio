@@ -82,7 +82,7 @@ class TestCalculateFilteredHistoricalReturns:
         }
         defaults[field] = value
         with pytest.raises(ValueError, match=match):
-            calculate_filtered_historical_returns(**defaults)
+            calculate_filtered_historical_returns(**defaults)  # type: ignore[invalid-argument-type]
 
     def test_insufficient_prices_raises(self) -> None:
         prices = pd.Series(
