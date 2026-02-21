@@ -2,8 +2,11 @@
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from investment_portfolio.monte_carlo import (
+    SimulationPercentiles,
+    SimulationRiskMetrics,
     calculate_annualized_volatility,
     calculate_simulation_percentiles,
     calculate_simulation_risk_metrics,
@@ -54,6 +57,31 @@ class TestGeometricBrownianMotion:
         )
         np.testing.assert_array_equal(a, b)
 
+    @pytest.mark.parametrize(
+        ("field", "value", "match"),
+        [
+            ("current_price", -1.0, "current_price must be positive"),
+            ("current_price", 0.0, "current_price must be positive"),
+            ("time_horizon", 0.0, "time_horizon must be positive"),
+            ("time_horizon", -1.0, "time_horizon must be positive"),
+            ("num_simulations", 0, "num_simulations must be positive"),
+            ("num_simulations", -5, "num_simulations must be positive"),
+        ],
+    )
+    def test_invalid_inputs_raise(
+        self, field: str, value: float | int, match: str
+    ) -> None:
+        defaults = {
+            "current_price": 100.0,
+            "annual_return": 0.10,
+            "annual_volatility": 0.20,
+            "time_horizon": 1.0,
+            "num_simulations": 10,
+        }
+        defaults[field] = value
+        with pytest.raises(ValueError, match=match):
+            geometric_brownian_motion(**defaults)
+
 
 class TestGeometricBrownianMotionPaths:
     def test_paths_shape(self, rng: np.random.Generator) -> None:
@@ -101,31 +129,66 @@ class TestGeometricBrownianMotionPaths:
         )
         np.testing.assert_array_equal(a, b)
 
+    @pytest.mark.parametrize(
+        ("field", "value", "match"),
+        [
+            ("current_price", 0.0, "current_price must be positive"),
+            ("time_horizon", 0.0, "time_horizon must be positive"),
+            ("num_simulations", 0, "num_simulations must be positive"),
+            ("num_steps", 0, "num_steps must be positive"),
+            ("num_steps", -1, "num_steps must be positive"),
+        ],
+    )
+    def test_invalid_inputs_raise(
+        self, field: str, value: float | int, match: str
+    ) -> None:
+        defaults: dict[str, float | int] = {
+            "current_price": 100.0,
+            "annual_return": 0.10,
+            "annual_volatility": 0.20,
+            "time_horizon": 1.0,
+            "num_simulations": 10,
+            "num_steps": 50,
+        }
+        defaults[field] = value
+        with pytest.raises(ValueError, match=match):
+            geometric_brownian_motion_paths(**defaults)
+
 
 class TestCalculateAnnualizedVolatility:
     def test_positive(self, sample_prices: pd.Series) -> None:
-        vol = calculate_annualized_volatility(prices=sample_prices, lookback_years=5)
+        vol = calculate_annualized_volatility(prices=sample_prices)
         assert vol > 0
 
     def test_returns_float(self, sample_prices: pd.Series) -> None:
-        vol = calculate_annualized_volatility(prices=sample_prices, lookback_years=5)
+        vol = calculate_annualized_volatility(prices=sample_prices)
         assert isinstance(vol, float)
+
+    def test_fewer_than_two_observations_raises(self) -> None:
+        prices = pd.Series([100.0], index=pd.bdate_range("2024-01-02", periods=1))
+        with pytest.raises(ValueError, match="at least 2 observations"):
+            calculate_annualized_volatility(prices=prices)
+
+    def test_empty_series_raises(self) -> None:
+        prices = pd.Series([], dtype=float, index=pd.DatetimeIndex([]))
+        with pytest.raises(ValueError, match="at least 2 observations"):
+            calculate_annualized_volatility(prices=prices)
 
 
 class TestCalculateSimulationPercentiles:
-    def test_keys(self, rng: np.random.Generator) -> None:
+    def test_returns_dataclass(self, rng: np.random.Generator) -> None:
         values = rng.normal(100, 20, 1000)
         result = calculate_simulation_percentiles(values=values)
-        assert set(result.keys()) == {"p5", "p25", "p50", "p75", "p95"}
+        assert isinstance(result, SimulationPercentiles)
 
     def test_ordering(self, rng: np.random.Generator) -> None:
         values = rng.normal(100, 20, 1000)
         p = calculate_simulation_percentiles(values=values)
-        assert p["p5"] <= p["p25"] <= p["p50"] <= p["p75"] <= p["p95"]
+        assert p.p5 <= p.p25 <= p.p50 <= p.p75 <= p.p95
 
 
 class TestCalculateSimulationRiskMetrics:
-    def test_keys(self, rng: np.random.Generator) -> None:
+    def test_returns_dataclass(self, rng: np.random.Generator) -> None:
         terminals = geometric_brownian_motion(
             current_price=100.0,
             annual_return=0.10,
@@ -137,15 +200,7 @@ class TestCalculateSimulationRiskMetrics:
         result = calculate_simulation_risk_metrics(
             terminal_prices=terminals, current_price=100.0
         )
-        expected_keys = {
-            "var_95",
-            "cvar_95",
-            "sharpe",
-            "prob_profit",
-            "mean_return",
-            "return_std",
-        }
-        assert set(result.keys()) == expected_keys
+        assert isinstance(result, SimulationRiskMetrics)
 
     def test_cvar_worse_than_var(self, rng: np.random.Generator) -> None:
         terminals = geometric_brownian_motion(
@@ -159,4 +214,11 @@ class TestCalculateSimulationRiskMetrics:
         m = calculate_simulation_risk_metrics(
             terminal_prices=terminals, current_price=100.0
         )
-        assert m["cvar_95"] <= m["var_95"]
+        assert m.cvar_95 <= m.var_95
+
+    def test_zero_std_returns_zero_sharpe(self) -> None:
+        terminals = np.full(100, 110.0)
+        m = calculate_simulation_risk_metrics(
+            terminal_prices=terminals, current_price=100.0
+        )
+        assert m.sharpe == 0.0

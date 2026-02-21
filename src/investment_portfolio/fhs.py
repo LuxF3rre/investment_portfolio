@@ -1,6 +1,10 @@
 """Filtered Historical Simulation for asset price forecasting."""
 
 __all__ = [
+    "FHSMethod",
+    "FHSPercentiles",
+    "FHSRiskMetrics",
+    "ReturnStatistics",
     "calculate_fhs_percentiles",
     "calculate_fhs_risk_metrics",
     "calculate_filtered_historical_returns",
@@ -8,34 +12,105 @@ __all__ = [
     "forecast_prices",
 ]
 
+from dataclasses import dataclass
+from enum import StrEnum, auto
+from typing import assert_never
+
 import numpy as np
 import pandas as pd
 import scipy.stats
 
 
-def calculate_filtered_historical_returns(
+class FHSMethod(StrEnum):
+    """FHS volatility-filtering method."""
+
+    RATIO = auto()  # Practitioner: vol ratio on multi-period returns
+    RESIDUALS = auto()  # Academic: bootstrap standardized daily residuals
+
+
+@dataclass(frozen=True, slots=True)
+class ReturnStatistics:
+    """Descriptive statistics for a returns array.
+
+    Attributes:
+        mean: Mean return.
+        median: Median return.
+        std: Standard deviation.
+        skewness: Skewness.
+        kurtosis: Excess kurtosis.
+        minimum: Minimum return.
+        maximum: Maximum return.
+    """
+
+    mean: float
+    median: float
+    std: float
+    skewness: float
+    kurtosis: float
+    minimum: float
+    maximum: float
+
+
+@dataclass(frozen=True, slots=True)
+class FHSPercentiles:
+    """Percentile prices and percentage changes from FHS forecast.
+
+    Attributes:
+        p5_price: 5th percentile price.
+        p5_pct: 5th percentile percentage change.
+        p25_price: 25th percentile price.
+        p25_pct: 25th percentile percentage change.
+        p50_price: 50th percentile price.
+        p50_pct: 50th percentile percentage change.
+        p75_price: 75th percentile price.
+        p75_pct: 75th percentile percentage change.
+        p95_price: 95th percentile price.
+        p95_pct: 95th percentile percentage change.
+    """
+
+    p5_price: float
+    p5_pct: float
+    p25_price: float
+    p25_pct: float
+    p50_price: float
+    p50_pct: float
+    p75_price: float
+    p75_pct: float
+    p95_price: float
+    p95_pct: float
+
+
+@dataclass(frozen=True, slots=True)
+class FHSRiskMetrics:
+    """Risk metrics from Filtered Historical Simulation.
+
+    Attributes:
+        var_95: Value at Risk at 95% confidence (percentage).
+        cvar_95: Conditional VaR (percentage).
+        expected_price: Expected forecasted price.
+        expected_return: Mean filtered return.
+        return_std: Standard deviation of filtered returns.
+        sharpe: Sharpe ratio.
+        prob_appreciation: Probability of price increase.
+    """
+
+    var_95: float
+    cvar_95: float
+    expected_price: float
+    expected_return: float
+    return_std: float
+    sharpe: float
+    prob_appreciation: float
+
+
+def _ratio_scaling_method(
     *,
     prices: pd.Series,
     forecast_horizon: int,
     volatility_window: int,
     ewma_decay: float,
-    apply_filter: bool = True,
 ) -> np.ndarray:
-    """Calculate historical returns adjusted for current volatility.
-
-    Implements the Filtered Historical Simulation (FHS) method which scales
-    historical returns by the ratio of current to historical volatility.
-
-    Args:
-        prices: Time series of prices.
-        forecast_horizon: Number of periods ahead to forecast.
-        volatility_window: Window size for volatility estimation.
-        ewma_decay: Decay factor (``com`` parameter) for EWMA.
-        apply_filter: If ``True``, apply volatility scaling.
-
-    Returns:
-        Array of (optionally filtered) historical returns.
-    """
+    """Practitioner FHS — scale multi-period returns by volatility ratio."""
     recent_rates = prices.iloc[-volatility_window:]
     current_volatility = float(np.std(recent_rates.ewm(com=ewma_decay).mean()))
 
@@ -49,42 +124,179 @@ def calculate_filtered_historical_returns(
             prices.iloc[end_idx] - prices.iloc[start_idx]
         ) / prices.iloc[start_idx]
 
-        if apply_filter:
-            hist_window_start = max(0, -i - volatility_window)
-            hist_window_end = -i if i > 0 else None
-            historical_rates = prices.iloc[hist_window_start:hist_window_end]
+        hist_window_start = max(0, -i - volatility_window)
+        hist_window_end = -i
+        historical_rates = prices.iloc[hist_window_start:hist_window_end]
 
-            if len(historical_rates) >= volatility_window:
-                historical_volatility = float(
-                    np.std(historical_rates.ewm(com=ewma_decay).mean())
-                )
-                if historical_volatility > 0:
-                    scaling_factor = current_volatility / historical_volatility
-                    historical_return *= scaling_factor
+        if len(historical_rates) >= volatility_window:
+            historical_volatility = float(
+                np.std(historical_rates.ewm(com=ewma_decay).mean())
+            )
+            if historical_volatility > 0:
+                scaling_factor = current_volatility / historical_volatility
+                historical_return *= scaling_factor
 
         returns.append(float(historical_return))
 
     return np.array(returns)
 
 
-def calculate_return_statistics(*, returns: np.ndarray) -> dict[str, float]:
+def _standardized_residuals_method(
+    *,
+    prices: pd.Series,
+    forecast_horizon: int,
+    volatility_window: int,
+    ewma_decay: float,
+    rng: np.random.Generator,
+    num_simulations: int,
+) -> np.ndarray:
+    """Academic FHS — bootstrap standardized residuals (Barone-Adesi et al. 1998).
+
+    Steps:
+        1. Compute daily log-returns.
+        2. Compute EWMA volatility (rolling std of EWMA-smoothed returns).
+        3. Standardize: z_t = r_t / vol_t.
+        4. Bootstrap ``num_simulations`` paths of ``forecast_horizon`` days.
+        5. Re-scale each sampled residual by current conditional volatility,
+           sum daily log-returns, and convert to simple returns.
+    """
+    log_returns = np.diff(np.log(prices.values))
+
+    ewma_series = pd.Series(log_returns).ewm(com=ewma_decay).mean()
+    rolling_vol = ewma_series.rolling(window=volatility_window).std()
+
+    vol_values = rolling_vol.values
+    eps: float = 1e-12
+    valid = vol_values > eps
+    z = log_returns[valid] / vol_values[valid]
+
+    current_vol = float(vol_values[~np.isnan(vol_values)][-1])
+
+    sampled_z = rng.choice(z, size=(num_simulations, forecast_horizon), replace=True)
+    daily_log_returns = sampled_z * current_vol
+    cumulative = daily_log_returns.sum(axis=1)
+
+    return np.expm1(cumulative)
+
+
+def _unfiltered_returns(
+    *,
+    prices: pd.Series,
+    forecast_horizon: int,
+) -> np.ndarray:
+    """Raw multi-period simple returns without any volatility filtering."""
+    max_periods = len(prices) - forecast_horizon
+    returns: list[float] = []
+
+    for i in range(1, max_periods):
+        end_idx = -i
+        start_idx = -i - forecast_horizon
+        historical_return = (
+            prices.iloc[end_idx] - prices.iloc[start_idx]
+        ) / prices.iloc[start_idx]
+        returns.append(float(historical_return))
+
+    return np.array(returns)
+
+
+def calculate_filtered_historical_returns(
+    *,
+    prices: pd.Series,
+    forecast_horizon: int,
+    volatility_window: int,
+    ewma_decay: float,
+    apply_filter: bool = True,
+    method: FHSMethod = FHSMethod.RATIO,
+    rng: np.random.Generator | None = None,
+    num_simulations: int = 10_000,
+) -> np.ndarray:
+    """Calculate historical returns adjusted for current volatility.
+
+    Implements two Filtered Historical Simulation methods:
+
+    * **RATIO** (practitioner): scales multi-period returns by the ratio of
+      current to historical EWMA volatility.
+    * **RESIDUALS** (academic, Barone-Adesi et al. 1998): extracts standardized
+      daily residuals, bootstraps them, and re-scales by the current
+      conditional volatility to produce simulated multi-period returns.
+
+    Args:
+        prices: Time series of prices.
+        forecast_horizon: Number of periods ahead to forecast. Must be positive.
+        volatility_window: Window size for volatility estimation. Must be positive.
+        ewma_decay: Decay factor (``com`` parameter) for EWMA.
+        apply_filter: If ``True``, apply volatility scaling.
+        method: Which FHS method to use.
+        rng: Random generator for the residuals method.
+        num_simulations: Number of bootstrap paths (residuals method only).
+            Must be positive.
+
+    Returns:
+        Array of (optionally filtered) historical returns.
+
+    Raises:
+        ValueError: If inputs are out of valid range.
+    """
+    if forecast_horizon <= 0:
+        msg = "forecast_horizon must be positive"
+        raise ValueError(msg)
+    if volatility_window <= 0:
+        msg = "volatility_window must be positive"
+        raise ValueError(msg)
+    if num_simulations <= 0:
+        msg = "num_simulations must be positive"
+        raise ValueError(msg)
+    if len(prices) <= forecast_horizon:
+        msg = "prices must have more observations than forecast_horizon"
+        raise ValueError(msg)
+
+    if not apply_filter:
+        return _unfiltered_returns(
+            prices=prices,
+            forecast_horizon=forecast_horizon,
+        )
+
+    match method:
+        case FHSMethod.RATIO:
+            return _ratio_scaling_method(
+                prices=prices,
+                forecast_horizon=forecast_horizon,
+                volatility_window=volatility_window,
+                ewma_decay=ewma_decay,
+            )
+        case FHSMethod.RESIDUALS:
+            if rng is None:
+                rng = np.random.default_rng()
+            return _standardized_residuals_method(
+                prices=prices,
+                forecast_horizon=forecast_horizon,
+                volatility_window=volatility_window,
+                ewma_decay=ewma_decay,
+                rng=rng,
+                num_simulations=num_simulations,
+            )
+        case _:
+            assert_never(method)
+
+
+def calculate_return_statistics(*, returns: np.ndarray) -> ReturnStatistics:
     """Compute descriptive statistics for a returns array.
 
     Args:
         returns: 1-D array of returns.
 
     Returns:
-        Dictionary with mean, median, std, skewness, kurtosis, min, max.
+        Descriptive statistics.
     """
-    return {
-        "mean": float(np.mean(returns)),
-        "median": float(np.median(returns)),
-        "std": float(np.std(returns)),
-        "skewness": float(scipy.stats.skew(returns)),
-        "kurtosis": float(scipy.stats.kurtosis(returns)),
-        "min": float(np.min(returns)),
-        "max": float(np.max(returns)),
-    }
+    return ReturnStatistics(
+        mean=float(np.mean(returns)),
+        median=float(np.median(returns)),
+        std=float(np.std(returns)),
+        skewness=float(scipy.stats.skew(returns)),
+        kurtosis=float(scipy.stats.kurtosis(returns)),
+        minimum=float(np.min(returns)),
+        maximum=float(np.max(returns)),
+    )
 
 
 def forecast_prices(
@@ -93,18 +305,24 @@ def forecast_prices(
     """Project future prices from filtered returns.
 
     Args:
-        current_price: Current asset price.
+        current_price: Current asset price. Must be positive.
         filtered_returns: Array of filtered historical returns.
 
     Returns:
         Array of forecasted prices.
+
+    Raises:
+        ValueError: If current_price is not positive.
     """
+    if current_price <= 0:
+        msg = "current_price must be positive"
+        raise ValueError(msg)
     return (filtered_returns + 1) * current_price
 
 
 def calculate_fhs_percentiles(
     *, forecasted_prices: np.ndarray, current_price: float
-) -> dict[str, float]:
+) -> FHSPercentiles:
     """Compute percentiles and percentage changes for forecasted prices.
 
     Args:
@@ -112,16 +330,17 @@ def calculate_fhs_percentiles(
         current_price: Starting price.
 
     Returns:
-        Dictionary keyed by percentile label with price and pct change.
+        Percentile prices and percentage changes.
     """
     labels = [5, 25, 50, 75, 95]
-    result: dict[str, float] = {}
+    values: dict[str, float] = {}
     for p in labels:
         price = float(np.percentile(forecasted_prices, p))
         pct = (price / current_price - 1) * 100
-        result[f"p{p}_price"] = price
-        result[f"p{p}_pct"] = pct
-    return result
+        values[f"p{p}_price"] = price
+        values[f"p{p}_pct"] = pct
+
+    return FHSPercentiles(**values)
 
 
 def calculate_fhs_risk_metrics(
@@ -129,17 +348,18 @@ def calculate_fhs_risk_metrics(
     filtered_returns: np.ndarray,
     forecasted_prices: np.ndarray,
     current_price: float,
-) -> dict[str, float]:
+    risk_free_rate: float = 0.0,
+) -> FHSRiskMetrics:
     """Derive risk metrics from FHS results.
 
     Args:
         filtered_returns: Array of filtered historical returns.
         forecasted_prices: Corresponding forecasted prices.
         current_price: Starting price.
+        risk_free_rate: Risk-free rate for Sharpe ratio calculation.
 
     Returns:
-        Dictionary with VaR, CVaR, expected price, expected return,
-        probability of appreciation, and Sharpe ratio.
+        Risk metrics.
     """
     returns_pct = filtered_returns * 100
 
@@ -148,17 +368,18 @@ def calculate_fhs_risk_metrics(
 
     mean_return = float(np.mean(filtered_returns))
     return_std = float(np.std(filtered_returns))
-    sharpe = mean_return / return_std if return_std > 0 else 0.0
+    eps: float = 1e-12
+    sharpe = (mean_return - risk_free_rate) / return_std if return_std > eps else 0.0
 
     expected_price = float(np.mean(forecasted_prices))
     prob_appreciation = float((forecasted_prices > current_price).mean())
 
-    return {
-        "var_95": var_95,
-        "cvar_95": cvar_95,
-        "expected_price": expected_price,
-        "expected_return": mean_return,
-        "return_std": return_std,
-        "sharpe": sharpe,
-        "prob_appreciation": prob_appreciation,
-    }
+    return FHSRiskMetrics(
+        var_95=var_95,
+        cvar_95=cvar_95,
+        expected_price=expected_price,
+        expected_return=mean_return,
+        return_std=return_std,
+        sharpe=sharpe,
+        prob_appreciation=prob_appreciation,
+    )

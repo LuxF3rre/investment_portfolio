@@ -1,6 +1,8 @@
 """Geometric Brownian Motion simulation and risk metrics."""
 
 __all__ = [
+    "SimulationPercentiles",
+    "SimulationRiskMetrics",
     "calculate_annualized_volatility",
     "calculate_simulation_percentiles",
     "calculate_simulation_risk_metrics",
@@ -9,9 +11,53 @@ __all__ = [
 ]
 
 import math
+from dataclasses import dataclass
+from typing import Final
 
 import numpy as np
 import pandas as pd
+
+_MIN_OBSERVATIONS: Final = 2
+
+
+@dataclass(frozen=True, slots=True)
+class SimulationPercentiles:
+    """Percentile values from a simulation distribution.
+
+    Attributes:
+        p5: 5th percentile.
+        p25: 25th percentile.
+        p50: 50th percentile (median).
+        p75: 75th percentile.
+        p95: 95th percentile.
+    """
+
+    p5: float
+    p25: float
+    p50: float
+    p75: float
+    p95: float
+
+
+@dataclass(frozen=True, slots=True)
+class SimulationRiskMetrics:
+    """Risk metrics derived from a terminal price distribution.
+
+    Attributes:
+        var_95: Value at Risk at 95% confidence (5th percentile of returns).
+        cvar_95: Conditional VaR (expected shortfall beyond VaR).
+        sharpe: Sharpe ratio.
+        prob_profit: Probability of positive return.
+        mean_return: Mean simulated return.
+        return_std: Standard deviation of simulated returns.
+    """
+
+    var_95: float
+    cvar_95: float
+    sharpe: float
+    prob_profit: float
+    mean_return: float
+    return_std: float
 
 
 def geometric_brownian_motion(
@@ -26,16 +72,29 @@ def geometric_brownian_motion(
     """Simulate terminal asset prices using vectorized GBM.
 
     Args:
-        current_price: Current asset price (S_t).
+        current_price: Current asset price (S_t). Must be positive.
         annual_return: Expected annual rate of return (mu).
         annual_volatility: Annualized volatility (sigma).
-        time_horizon: Forecast period in years (delta-t).
-        num_simulations: Number of terminal prices to generate.
+        time_horizon: Forecast period in years (delta-t). Must be positive.
+        num_simulations: Number of terminal prices to generate. Must be positive.
         rng: NumPy random generator for reproducibility.
 
     Returns:
         1-D array of simulated terminal prices.
+
+    Raises:
+        ValueError: If inputs are out of valid range.
     """
+    if current_price <= 0:
+        msg = "current_price must be positive"
+        raise ValueError(msg)
+    if time_horizon <= 0:
+        msg = "time_horizon must be positive"
+        raise ValueError(msg)
+    if num_simulations <= 0:
+        msg = "num_simulations must be positive"
+        raise ValueError(msg)
+
     if rng is None:
         rng = np.random.default_rng()
 
@@ -58,17 +117,33 @@ def geometric_brownian_motion_paths(
     """Simulate complete price paths using GBM.
 
     Args:
-        current_price: Current asset price.
+        current_price: Current asset price. Must be positive.
         annual_return: Expected annual rate of return.
         annual_volatility: Annualized volatility.
-        time_horizon: Forecast period in years.
-        num_simulations: Number of paths.
-        num_steps: Time steps per path (default 252 trading days).
+        time_horizon: Forecast period in years. Must be positive.
+        num_simulations: Number of paths. Must be positive.
+        num_steps: Time steps per path (default 252 trading days). Must be positive.
         rng: NumPy random generator for reproducibility.
 
     Returns:
         Array of shape ``(num_steps + 1, num_simulations)``.
+
+    Raises:
+        ValueError: If inputs are out of valid range.
     """
+    if current_price <= 0:
+        msg = "current_price must be positive"
+        raise ValueError(msg)
+    if time_horizon <= 0:
+        msg = "time_horizon must be positive"
+        raise ValueError(msg)
+    if num_simulations <= 0:
+        msg = "num_simulations must be positive"
+        raise ValueError(msg)
+    if num_steps <= 0:
+        msg = "num_steps must be positive"
+        raise ValueError(msg)
+
     if rng is None:
         rng = np.random.default_rng()
 
@@ -84,33 +159,53 @@ def geometric_brownian_motion_paths(
     return prices
 
 
-def calculate_annualized_volatility(*, prices: pd.Series, lookback_years: int) -> float:
+def calculate_annualized_volatility(*, prices: pd.Series) -> float:
     """Calculate annualized volatility from a price series.
 
+    Infers the annualization factor from the datetime index by computing
+    the average number of observations per calendar year.
+
     Args:
-        prices: Historical closing prices.
-        lookback_years: Length of lookback period in years.
+        prices: Historical closing prices with a DatetimeIndex.
 
     Returns:
         Annualized volatility estimate.
+
+    Raises:
+        ValueError: If the price series has fewer than 2 observations.
     """
+    if len(prices) < _MIN_OBSERVATIONS:
+        msg = "prices must have at least 2 observations"
+        raise ValueError(msg)
+
     daily_returns = prices.pct_change().dropna()
     daily_std = daily_returns.std()
-    time_interval = lookback_years / len(prices)
-    return float(daily_std / math.sqrt(time_interval))
+
+    total_calendar_days = (prices.index[-1] - prices.index[0]).days
+    if total_calendar_days <= 0:
+        ann_factor = 252.0
+    else:
+        ann_factor = len(prices) * 365.25 / total_calendar_days
+
+    return float(daily_std * math.sqrt(ann_factor))
 
 
-def calculate_simulation_percentiles(*, values: np.ndarray) -> dict[str, float]:
+def calculate_simulation_percentiles(*, values: np.ndarray) -> SimulationPercentiles:
     """Compute 5/25/50/75/95 percentiles.
 
     Args:
         values: 1-D array of simulated values.
 
     Returns:
-        Mapping from percentile label to value.
+        Percentile values.
     """
-    labels = [5, 25, 50, 75, 95]
-    return {f"p{p}": float(np.percentile(values, p)) for p in labels}
+    return SimulationPercentiles(
+        p5=float(np.percentile(values, 5)),
+        p25=float(np.percentile(values, 25)),
+        p50=float(np.percentile(values, 50)),
+        p75=float(np.percentile(values, 75)),
+        p95=float(np.percentile(values, 95)),
+    )
 
 
 def calculate_simulation_risk_metrics(
@@ -118,7 +213,7 @@ def calculate_simulation_risk_metrics(
     terminal_prices: np.ndarray,
     current_price: float,
     risk_free_rate: float = 0.04,
-) -> dict[str, float]:
+) -> SimulationRiskMetrics:
     """Derive risk metrics from terminal price distribution.
 
     Args:
@@ -127,8 +222,7 @@ def calculate_simulation_risk_metrics(
         risk_free_rate: Annual risk-free rate for Sharpe calculation.
 
     Returns:
-        Dictionary with VaR, CVaR, Sharpe, probability of profit,
-        expected return, and return volatility.
+        Risk metrics.
     """
     returns = (terminal_prices - current_price) / current_price
 
@@ -137,14 +231,15 @@ def calculate_simulation_risk_metrics(
 
     mean_return = float(returns.mean())
     return_std = float(returns.std())
-    sharpe = (mean_return - risk_free_rate) / return_std if return_std > 0 else 0.0
+    eps: float = 1e-12
+    sharpe = (mean_return - risk_free_rate) / return_std if return_std > eps else 0.0
     prob_profit = float((terminal_prices > current_price).mean())
 
-    return {
-        "var_95": var_95,
-        "cvar_95": cvar_95,
-        "sharpe": sharpe,
-        "prob_profit": prob_profit,
-        "mean_return": mean_return,
-        "return_std": return_std,
-    }
+    return SimulationRiskMetrics(
+        var_95=var_95,
+        cvar_95=cvar_95,
+        sharpe=sharpe,
+        prob_profit=prob_profit,
+        mean_return=mean_return,
+        return_std=return_std,
+    )

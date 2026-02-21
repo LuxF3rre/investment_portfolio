@@ -1,7 +1,5 @@
 """Tests for the Modern Portfolio Theory module."""
 
-from unittest.mock import patch
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -20,7 +18,7 @@ class TestFetchMultiHistory:
         with pytest.raises(ValueError, match="at least 2 tickers"):
             fetch_multi_history(tickers=["AAPL"])
 
-    def test_correct_columns(self) -> None:
+    def test_correct_columns(self, monkeypatch: pytest.MonkeyPatch) -> None:
         rng = np.random.default_rng(0)
         n = 100
         index = pd.bdate_range(start="2023-01-02", periods=n)
@@ -29,13 +27,15 @@ class TestFetchMultiHistory:
             prices = 100 + rng.standard_normal(n).cumsum()
             return pd.DataFrame({"Close": prices}, index=index)
 
-        with patch("investment_portfolio.mpt.fetch_history", side_effect=_mock_fetch):
-            result = fetch_multi_history(tickers=["AAPL", "MSFT", "GOOGL"])
+        monkeypatch.setattr("investment_portfolio.mpt.fetch_history", _mock_fetch)
+        result = fetch_multi_history(tickers=["AAPL", "MSFT", "GOOGL"])
 
         assert list(result.columns) == ["AAPL", "MSFT", "GOOGL"]
         assert len(result) == n
 
-    def test_inner_join_drops_non_overlapping(self) -> None:
+    def test_inner_join_drops_non_overlapping(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         idx_a = pd.bdate_range(start="2023-01-02", periods=50)
         idx_b = pd.bdate_range(start="2023-02-01", periods=50)
 
@@ -43,8 +43,8 @@ class TestFetchMultiHistory:
             idx = idx_a if ticker == "A" else idx_b
             return pd.DataFrame({"Close": range(len(idx))}, index=idx)
 
-        with patch("investment_portfolio.mpt.fetch_history", side_effect=_mock_fetch):
-            result = fetch_multi_history(tickers=["A", "B"])
+        monkeypatch.setattr("investment_portfolio.mpt.fetch_history", _mock_fetch)
+        result = fetch_multi_history(tickers=["A", "B"])
 
         overlap = idx_a.intersection(idx_b)
         assert len(result) == len(overlap)

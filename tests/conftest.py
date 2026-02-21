@@ -31,3 +31,32 @@ def sample_fx_rates() -> pd.Series:
     rates = 1.10 * np.cumprod(1 + daily_returns)
     index = pd.bdate_range(start="2017-01-02", periods=n)
     return pd.Series(rates, index=index, name="Close")
+
+
+@pytest.fixture
+def multi_asset_prices() -> pd.DataFrame:
+    """Synthetic multi-asset prices with Cholesky-correlated returns."""
+    rng = np.random.default_rng(42)
+    n = 1260
+    tickers = ["AAPL", "MSFT", "GOOGL", "AMZN"]
+
+    # Target correlation structure
+    corr = np.array(
+        [
+            [1.0, 0.7, 0.5, 0.4],
+            [0.7, 1.0, 0.6, 0.5],
+            [0.5, 0.6, 1.0, 0.3],
+            [0.4, 0.5, 0.3, 1.0],
+        ]
+    )
+    vols = np.array([0.02, 0.018, 0.022, 0.025])
+    cov = np.outer(vols, vols) * corr
+    chol = np.linalg.cholesky(cov)
+
+    means = np.array([0.0004, 0.0003, 0.0005, 0.0002])
+    uncorrelated = rng.standard_normal((n, 4))
+    correlated = uncorrelated @ chol.T + means
+
+    prices_arr = 100.0 * np.cumprod(1 + correlated, axis=0)
+    index = pd.bdate_range(start="2019-01-02", periods=n)
+    return pd.DataFrame(prices_arr, index=index, columns=pd.Index(tickers))

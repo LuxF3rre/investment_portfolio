@@ -1,13 +1,17 @@
 """Filtered Historical Simulation page — Streamlit UI only."""
 
-import matplotlib.pyplot as plt
+import dataclasses
+
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
+from plotly.subplots import make_subplots
 from scipy.stats import gaussian_kde
 
 from investment_portfolio.data import fetch_history
 from investment_portfolio.fhs import (
+    FHSMethod,
     calculate_fhs_percentiles,
     calculate_fhs_risk_metrics,
     calculate_filtered_historical_returns,
@@ -23,13 +27,93 @@ st.set_page_config(
 
 st.title("Filtered Historical Simulation (FHS)")
 
+
+_PRICE_PRECISION_THRESHOLD: int = 10
+
+
+def _fmt_price(price: float) -> str:
+    """Format price adaptively — more decimals for small values (FX)."""
+    if abs(price) < _PRICE_PRECISION_THRESHOLD:
+        return f"{price:.4f}"
+    return f"{price:,.2f}"
+
+
 # ── Sidebar ──────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.header("Parameters")
-    ticker = st.text_input("Ticker (yfinance)", value="EURUSD=X")
-    forecast_horizon = st.slider("Forecast horizon (days)", 10, 500, 250)
-    vol_window = st.slider("Volatility window", 10, 60, 20)
-    ewma_decay = st.slider("EWMA decay", 0.90, 0.99, 0.99, step=0.01)
+    ticker = st.text_input(
+        "Ticker (yfinance)",
+        value="EURUSD=X",
+        help=(
+            "Any yfinance-compatible symbol: stocks (AAPL), FX (EURUSD=X), "
+            "commodities (GC=F), ETFs (SPY)."
+        ),
+    )
+    method_label = st.selectbox(
+        "Method",
+        ["Ratio Scaling", "Standardized Residuals"],
+        help=(
+            "Ratio Scaling is simpler and faster. Standardized Residuals is "
+            "more rigorous when volatility is changing rapidly. See the guide "
+            "on the main panel for details."
+        ),
+    )
+    fhs_method = (
+        FHSMethod.RESIDUALS
+        if method_label == "Standardized Residuals"
+        else FHSMethod.RATIO
+    )
+    forecast_horizon = st.slider(
+        "Forecast horizon (days)",
+        10,
+        500,
+        250,
+        help="Number of trading days to forecast. 250 days is roughly 1 year.",
+    )
+    vol_window = st.slider(
+        "Volatility window",
+        10,
+        60,
+        20,
+        help=(
+            "Number of days used to estimate rolling volatility. Shorter "
+            "windows react faster to recent market changes."
+        ),
+    )
+    ewma_decay = st.slider(
+        "EWMA decay",
+        0.90,
+        0.99,
+        0.99,
+        step=0.01,
+        help=(
+            "Exponentially Weighted Moving Average decay factor. Values "
+            "closer to 1.0 give more weight to recent observations."
+        ),
+    )
+    if fhs_method == FHSMethod.RESIDUALS:
+        num_sims = st.slider(
+            "Simulations",
+            1_000,
+            50_000,
+            10_000,
+            step=1_000,
+            help="Number of bootstrap samples to draw from the standardized residuals.",
+        )
+    else:
+        num_sims = 10_000
+    risk_free_rate = st.number_input(
+        "Risk-free rate",
+        0.0,
+        0.20,
+        0.0,
+        step=0.01,
+        format="%.2f",
+        help=(
+            "Annual return on a risk-free asset (e.g. Treasury bill yield). "
+            "Used to calculate the Sharpe ratio."
+        ),
+    )
     run = st.button("Run", type="primary")
 
 
@@ -39,150 +123,281 @@ def _fetch(*, ticker: str) -> pd.DataFrame:
     return fetch_history(ticker=ticker)
 
 
-# ── Main ─────────────────────────────────────────────────────────────────────
+# ── Computation (only on Run click) ──────────────────────────────────────────
 if run:
-    df = _fetch(ticker=ticker)
+    try:
+        df = _fetch(ticker=ticker)
+    except Exception as exc:
+        st.error(f"Could not fetch data for **{ticker}**: {exc}")
+        st.stop()
 
-    prices: pd.Series = df["Close"]
-    current_price = float(prices.iloc[-1])
+    with st.spinner("Running simulation…"):
+        prices: pd.Series = df["Close"]
+        current_price = float(prices.iloc[-1])
 
-    # Filtered + unfiltered for comparison
-    filtered = calculate_filtered_historical_returns(
-        prices=prices,
-        forecast_horizon=forecast_horizon,
-        volatility_window=vol_window,
-        ewma_decay=ewma_decay,
-        apply_filter=True,
-    )
-    unfiltered = calculate_filtered_historical_returns(
-        prices=prices,
-        forecast_horizon=forecast_horizon,
-        volatility_window=vol_window,
-        ewma_decay=ewma_decay,
-        apply_filter=False,
-    )
-
-    forecasted = forecast_prices(current_price=current_price, filtered_returns=filtered)
-    risk = calculate_fhs_risk_metrics(
-        filtered_returns=filtered,
-        forecasted_prices=forecasted,
-        current_price=current_price,
-    )
-    pctiles = calculate_fhs_percentiles(
-        forecasted_prices=forecasted, current_price=current_price
-    )
-    stats = calculate_return_statistics(returns=filtered)
-
-    # ── Metrics row ──────────────────────────────────────────────────────
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Current", f"{current_price:.5f}")
-    c2.metric("Expected", f"{risk['expected_price']:.5f}")
-    c3.metric("VaR 95%", f"{risk['var_95']:.2f}%")
-    c4.metric("CVaR 95%", f"{risk['cvar_95']:.2f}%")
-    c5.metric("Sharpe", f"{risk['sharpe']:.3f}")
-
-    # ── Tabs ─────────────────────────────────────────────────────────────
-    tab_hist, tab_ret, tab_dist, tab_pct = st.tabs(
-        [
-            "Historical Rate",
-            "Filtered vs Unfiltered",
-            "Forecast Distribution",
-            "Percentiles & Stats",
-        ]
-    )
-
-    with tab_hist:
-        fig, ax = plt.subplots(figsize=(10, 5))
-        ax.plot(prices.index, prices.values, linewidth=0.8)
-        ax.set_title(f"{ticker} Historical Price")
-        ax.set_xlabel("Date")
-        ax.set_ylabel("Price")
-        st.pyplot(fig)
-
-    with tab_ret:
-        fig2, (ax_f, ax_u) = plt.subplots(1, 2, figsize=(12, 5))
-
-        ax_f.hist(filtered, bins=50, alpha=0.7, color="teal", edgecolor="black")
-        ax_f.axvline(
-            filtered.mean(),
-            color="red",
-            linestyle="--",
-            label=f"Mean: {filtered.mean():.4f}",
+        filtered = calculate_filtered_historical_returns(
+            prices=prices,
+            forecast_horizon=forecast_horizon,
+            volatility_window=vol_window,
+            ewma_decay=ewma_decay,
+            apply_filter=True,
+            method=fhs_method,
+            num_simulations=num_sims,
         )
-        ax_f.set_title("Filtered Returns")
-        ax_f.set_xlabel("Return")
-        ax_f.legend()
-
-        ax_u.hist(
-            unfiltered,
-            bins=50,
-            alpha=0.7,
-            color="steelblue",
-            edgecolor="black",
+        unfiltered = calculate_filtered_historical_returns(
+            prices=prices,
+            forecast_horizon=forecast_horizon,
+            volatility_window=vol_window,
+            ewma_decay=ewma_decay,
+            apply_filter=False,
         )
-        ax_u.axvline(
-            unfiltered.mean(),
-            color="red",
-            linestyle="--",
-            label=f"Mean: {unfiltered.mean():.4f}",
+
+        forecasted = forecast_prices(
+            current_price=current_price, filtered_returns=filtered
         )
-        ax_u.set_title("Unfiltered Returns")
-        ax_u.set_xlabel("Return")
-        ax_u.legend()
-
-        plt.tight_layout()
-        st.pyplot(fig2)
-
-    with tab_dist:
-        fig3, ax3 = plt.subplots(figsize=(10, 5))
-        ax3.hist(forecasted, bins=60, density=True, alpha=0.7, color="teal")
-        kde = gaussian_kde(forecasted)
-        x = np.linspace(forecasted.min(), forecasted.max(), 300)
-        ax3.plot(x, kde(x), linewidth=2, color="red", label="KDE")
-        ax3.axvline(
-            current_price,
-            color="black",
-            linestyle="--",
-            label=f"Current: {current_price:.5f}",
+        risk = calculate_fhs_risk_metrics(
+            filtered_returns=filtered,
+            forecasted_prices=forecasted,
+            current_price=current_price,
+            risk_free_rate=risk_free_rate,
         )
-        ax3.set_xlabel("Forecasted Price")
-        ax3.set_ylabel("Density")
-        ax3.set_title(
-            f"{ticker} Forecast Distribution ({forecast_horizon}-Day Horizon)"
+        pctiles = calculate_fhs_percentiles(
+            forecasted_prices=forecasted, current_price=current_price
         )
-        ax3.legend()
-        st.pyplot(fig3)
+        stats = calculate_return_statistics(returns=filtered)
 
-    with tab_pct:
-        pct_col, stat_col = st.columns(2)
-
-        with pct_col:
-            st.subheader("Percentiles")
-            rows = []
-            for p in [5, 25, 50, 75, 95]:
-                rows.append(
-                    {
-                        "Percentile": f"{p}th",
-                        "Price": f"{pctiles[f'p{p}_price']:.5f}",
-                        "Change": f"{pctiles[f'p{p}_pct']:+.2f}%",
-                    }
-                )
-            st.table(pd.DataFrame(rows))
-            st.metric(
-                "Probability of appreciation",
-                f"{risk['prob_appreciation']:.1%}",
-            )
-
-        with stat_col:
-            st.subheader("Return Statistics")
-            stat_rows = [
-                {"Metric": k.replace("_", " ").title(), "Value": f"{v:.6f}"}
-                for k, v in stats.items()
-            ]
-            st.table(pd.DataFrame(stat_rows))
-
-    st.session_state["fhs_results"] = {
+    st.session_state["fhs_has_run"] = True
+    st.session_state["fhs_data"] = {
+        "ticker": ticker,
+        "forecast_horizon": forecast_horizon,
+        "current_price": current_price,
+        "prices": prices,
+        "filtered": filtered,
+        "unfiltered": unfiltered,
+        "forecasted": forecasted,
         "risk": risk,
-        "percentiles": pctiles,
+        "pctiles": pctiles,
         "stats": stats,
     }
+
+_has_run: bool = (
+    st.session_state.get("fhs_has_run", False) and "fhs_data" in st.session_state
+)
+
+# ── Guide ────────────────────────────────────────────────────────────────────
+with st.expander(
+    "What is Filtered Historical Simulation?",
+    expanded=(not _has_run),
+):
+    st.markdown(
+        """
+Filtered Historical Simulation (FHS) forecasts prices by replaying **actual
+historical returns** — but first adjusting them for how volatile the market is
+*right now*.
+
+Traditional historical simulation assumes the future will look exactly like the
+past. FHS improves on this by recognizing that volatility changes over time: if
+the market is currently turbulent, the simulation reflects that.
+
+**How to read the results:**
+- **Historical Rate tab** — the asset's raw price history.
+- **Filtered vs Unfiltered tab** — comparison showing how the volatility filter
+  reshapes the return distribution.
+- **Forecast Distribution tab** — where the price might land at the end of the
+  forecast horizon.
+- **Percentiles & Stats tab** — key price levels and statistical properties of
+  the filtered returns.
+
+**Key metrics:**
+- **VaR 95 %** — the worst-case loss you'd expect 95 % of the time.
+- **CVaR 95 %** — the average loss in the worst 5 % of scenarios.
+- **Sharpe ratio** — return per unit of risk (higher is better).
+"""
+    )
+
+with st.expander("Which method should I choose?"):
+    st.markdown(
+        """\
+**Ratio Scaling**
+- Scales multi-period historical returns by the ratio of
+  current to historical volatility.
+- Fast and simple.
+- Best for: quick analysis, stable volatility regimes.
+
+**Standardized Residuals**
+- Extracts standardized daily residuals, bootstraps them
+  with replacement, re-scales by current volatility.
+- Slower (generates many bootstrap samples).
+- Best for: rapidly changing volatility, rigorous tail
+  estimates.
+
+**Recommendation:** Start with *Ratio Scaling* for a quick
+first look. Switch to *Standardized Residuals* when you need
+higher precision or the market is in a stress period.
+"""
+    )
+
+if not _has_run:
+    st.info("Configure the parameters in the sidebar and click **Run** to start.")
+    st.stop()
+
+# ── Display from session state ───────────────────────────────────────────────
+_d = st.session_state["fhs_data"]
+
+c1, c2, c3, c4, c5 = st.columns(5)
+c1.metric("Current", _fmt_price(_d["current_price"]))
+c2.metric("Expected", _fmt_price(_d["risk"].expected_price))
+c3.metric("VaR 95%", f"{_d['risk'].var_95:.2f}%")
+c4.metric("CVaR 95%", f"{_d['risk'].cvar_95:.2f}%")
+c5.metric("Sharpe", f"{_d['risk'].sharpe:.3f}")
+
+tab_hist, tab_ret, tab_dist, tab_pct = st.tabs(
+    [
+        "Historical Rate",
+        "Filtered vs Unfiltered",
+        "Forecast Distribution",
+        "Percentiles & Stats",
+    ]
+)
+
+with tab_hist:
+    _prices = _d["prices"]
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=_prices.index,
+            y=_prices.values,
+            mode="lines",
+            line={"width": 1},
+            name=_d["ticker"],
+        )
+    )
+    fig.update_layout(
+        title=f"{_d['ticker']} Historical Price",
+        xaxis_title="Date",
+        yaxis_title="Price",
+        height=500,
+    )
+    st.plotly_chart(fig, width="stretch")
+
+with tab_ret:
+    _filt = _d["filtered"]
+    _unfilt = _d["unfiltered"]
+    fig2 = make_subplots(
+        rows=1,
+        cols=2,
+        subplot_titles=("Filtered Returns", "Unfiltered Returns"),
+    )
+    fig2.add_trace(
+        go.Histogram(
+            x=_filt,
+            nbinsx=50,
+            opacity=0.7,
+            marker_color="teal",
+            name="Filtered",
+        ),
+        row=1,
+        col=1,
+    )
+    fig2.add_vline(
+        x=float(_filt.mean()),
+        line_dash="dash",
+        line_color="#EF553B",
+        annotation_text=f"Mean: {_filt.mean():.4f}",
+        col=1,
+    )
+    fig2.add_trace(
+        go.Histogram(
+            x=_unfilt,
+            nbinsx=50,
+            opacity=0.7,
+            marker_color="steelblue",
+            name="Unfiltered",
+        ),
+        row=1,
+        col=2,
+    )
+    fig2.add_vline(
+        x=float(_unfilt.mean()),
+        line_dash="dash",
+        line_color="#EF553B",
+        annotation_text=f"Mean: {_unfilt.mean():.4f}",
+        col=2,
+    )
+    fig2.update_layout(height=500)
+    st.plotly_chart(fig2, width="stretch")
+
+with tab_dist:
+    _fc = _d["forecasted"]
+    _cp = _d["current_price"]
+    fig3 = go.Figure()
+    fig3.add_trace(
+        go.Histogram(
+            x=_fc,
+            nbinsx=60,
+            histnorm="probability density",
+            opacity=0.7,
+            name="Distribution",
+            marker_color="teal",
+        )
+    )
+    kde = gaussian_kde(_fc)
+    x = np.linspace(_fc.min(), _fc.max(), 300)
+    fig3.add_trace(
+        go.Scatter(
+            x=x,
+            y=kde(x),
+            mode="lines",
+            line={"width": 2, "color": "#EF553B"},
+            name="KDE",
+        )
+    )
+    fig3.add_vline(
+        x=_cp,
+        line_dash="dash",
+        line_color="gray",
+        annotation_text=f"Current: {_fmt_price(_cp)}",
+    )
+    fig3.update_layout(
+        title=(
+            f"{_d['ticker']} Forecast Distribution "
+            f"({_d['forecast_horizon']}-Day Horizon)"
+        ),
+        xaxis_title="Forecasted Price",
+        yaxis_title="Density",
+        height=500,
+    )
+    st.plotly_chart(fig3, width="stretch")
+
+with tab_pct:
+    _pctiles = _d["pctiles"]
+    _cp = _d["current_price"]
+    pct_col, stat_col = st.columns(2)
+
+    with pct_col:
+        st.subheader("Percentiles")
+        rows = []
+        for p in [5, 25, 50, 75, 95]:
+            rows.append(
+                {
+                    "Percentile": f"{p}th",
+                    "Price": _fmt_price(getattr(_pctiles, f"p{p}_price")),
+                    "Change": f"{getattr(_pctiles, f'p{p}_pct'):+.2f}%",
+                }
+            )
+        st.table(pd.DataFrame(rows))
+        st.metric(
+            "Probability of appreciation",
+            f"{_d['risk'].prob_appreciation:.1%}",
+        )
+
+    with stat_col:
+        st.subheader("Return Statistics")
+        stat_rows = [
+            {
+                "Metric": k.replace("_", " ").title(),
+                "Value": f"{v:.6f}",
+            }
+            for k, v in dataclasses.asdict(_d["stats"]).items()
+        ]
+        st.table(pd.DataFrame(stat_rows))

@@ -24,6 +24,35 @@ from riskfolio.src import ParamsEstimation
 TRADING_DAYS: int = 252
 _MIN_TICKERS: int = 2
 
+# Risk measures requiring EXP or POW cone solvers.
+# MOSEK is strongly recommended; CLARABEL may fail, SCS may be slow.
+_EXP_POW_MEASURES: frozenset[str] = frozenset(
+    {
+        "GMD",
+        "TG",
+        "RLVaR",
+        "TGRG",
+        "RVRG",
+        "RLDaR",  # POW cone
+        "EVaR",
+        "EVRG",
+        "EDaR",  # EXP cone
+    }
+)
+
+
+def preferred_solvers(*, rm: str) -> list[str]:
+    """Return solver preference order for the given risk measure.
+
+    EXP / POW cone problems (marked ** in the riskfolio-lib docs)
+    strongly benefit from MOSEK.  For LP / QP / SOCP / SDP problems
+    CLARABEL is a good open-source default.
+    """
+    if rm in _EXP_POW_MEASURES:
+        return ["MOSEK", "CLARABEL", "SCS"]
+    return ["CLARABEL", "MOSEK", "SCS"]
+
+
 RISK_MEASURES: dict[str, str] = {
     # Dispersion
     "Standard Deviation": "MV",
@@ -95,13 +124,21 @@ def _infer_ann_factor(*, index: pd.Index) -> float:
 
 
 def build_portfolio(
-    *, prices: pd.DataFrame, allow_short_selling: bool
+    *,
+    prices: pd.DataFrame,
+    allow_short_selling: bool,
+    alpha: float = 0.05,
+    kappa: float = 0.30,
 ) -> tuple[rp.Portfolio, np.ndarray, np.ndarray, float]:
     """Create a riskfolio Portfolio and compute asset statistics.
 
     Args:
         prices: Multi-asset price DataFrame (one column per ticker).
         allow_short_selling: Allow negative weights if ``True``.
+        alpha: Significance level for tail-risk measures (e.g. 0.05
+            for 95 % confidence).
+        kappa: Deformation parameter for relativistic VaR / DaR
+            measures.  Must be between 0 and 1.
 
     Returns:
         Tuple of ``(portfolio, mu_daily, cov_daily, ann_factor)`` where
@@ -119,6 +156,8 @@ def build_portfolio(
     port.assets_stats(method_mu="hist", method_cov="hist", method_kurt="hist")
     port.skurt = ParamsEstimation.cokurt_matrix(returns, method="semi")
     port.sht = allow_short_selling
+    port.alpha = alpha
+    port.kappa = kappa
 
     if port.mu is None or port.cov is None:
         msg = "asset statistics could not be computed"
@@ -175,6 +214,8 @@ def optimize_portfolio(
     rf: float = 0.0,
     allow_short_selling: bool = False,
     risk_aversion: float = 1.0,
+    alpha: float = 0.05,
+    kappa: float = 0.30,
 ) -> PortfolioResult:
     """Optimize a portfolio using riskfolio-lib.
 
@@ -187,6 +228,8 @@ def optimize_portfolio(
         allow_short_selling: Allow negative weights if ``True``.
         risk_aversion: Risk aversion parameter (used when *obj* is
             ``"Utility"``).
+        alpha: Significance level for tail-risk measures.
+        kappa: Deformation parameter for relativistic measures.
 
     Returns:
         ``PortfolioResult`` with optimal weights and metrics.
@@ -194,9 +237,13 @@ def optimize_portfolio(
     Raises:
         RuntimeError: If the optimization fails to converge.
     """
-    port, mu, cov_mat, ann_factor = _build_portfolio(
-        prices=prices, allow_short_selling=allow_short_selling
+    port, mu, cov_mat, ann_factor = build_portfolio(
+        prices=prices,
+        allow_short_selling=allow_short_selling,
+        alpha=alpha,
+        kappa=kappa,
     )
+    port.solvers = preferred_solvers(rm=rm)
     rf_daily = rf / ann_factor
     w = port.optimization(
         model="Classic",
@@ -234,6 +281,8 @@ def build_efficient_frontier(
     num_points: int = 50,
     rf: float = 0.0,
     allow_short_selling: bool = False,
+    alpha: float = 0.05,
+    kappa: float = 0.30,
 ) -> tuple[np.ndarray, np.ndarray, pd.DataFrame]:
     """Build the efficient frontier using riskfolio-lib.
 
@@ -244,6 +293,8 @@ def build_efficient_frontier(
         num_points: Number of frontier points.
         rf: Annual risk-free rate.
         allow_short_selling: Allow negative weights if ``True``.
+        alpha: Significance level for tail-risk measures.
+        kappa: Deformation parameter for relativistic measures.
 
     Returns:
         Tuple of ``(risks, returns, weights_df)`` where *weights_df* has
@@ -252,9 +303,13 @@ def build_efficient_frontier(
     Raises:
         RuntimeError: If the frontier computation fails.
     """
-    port, mu, cov_mat, ann_factor = _build_portfolio(
-        prices=prices, allow_short_selling=allow_short_selling
+    port, mu, cov_mat, ann_factor = build_portfolio(
+        prices=prices,
+        allow_short_selling=allow_short_selling,
+        alpha=alpha,
+        kappa=kappa,
     )
+    port.solvers = preferred_solvers(rm=rm)
     rf_daily = rf / ann_factor
     frontier = port.efficient_frontier(
         model="Classic",
