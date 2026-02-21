@@ -155,6 +155,7 @@ if run:
             terminal_prices=terminal_prices,
             current_price=current_price,
             risk_free_rate=risk_free_rate,
+            time_horizon=forecast_years,
         )
         pctiles = calculate_simulation_percentiles(values=terminal_prices)
 

@@ -84,11 +84,12 @@ with st.sidebar:
         "EWMA decay",
         0.90,
         0.99,
-        0.99,
+        0.94,
         step=0.01,
         help=(
-            "Exponentially Weighted Moving Average decay factor. Values "
-            "closer to 1.0 give more weight to recent observations."
+            "Controls how quickly the volatility estimate adapts. Lower "
+            "values react faster to recent changes. 0.94 is the RiskMetrics "
+            "standard."
         ),
     )
     if fhs_method == FHSMethod.RESIDUALS:
@@ -155,11 +156,19 @@ if run:
         forecasted = forecast_prices(
             current_price=current_price, filtered_returns=filtered
         )
+        total_cal_days = (prices.index[-1] - prices.index[0]).days
+        if total_cal_days > 0:
+            trading_days_per_year = (len(prices) - 1) * 365.25 / total_cal_days
+        else:
+            trading_days_per_year = 252.0
+        time_horizon = forecast_horizon / trading_days_per_year
+
         risk = calculate_fhs_risk_metrics(
             filtered_returns=filtered,
             forecasted_prices=forecasted,
             current_price=current_price,
             risk_free_rate=risk_free_rate,
+            time_horizon=time_horizon,
         )
         pctiles = calculate_fhs_percentiles(
             forecasted_prices=forecasted, current_price=current_price
