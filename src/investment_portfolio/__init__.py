@@ -13,8 +13,10 @@ __all__ = [
     "FHSMethod",
     "FHSPercentiles",
     "FHSRiskMetrics",
+    "Greeks",
     "HCResult",
     "NCOResult",
+    "OptionPrice",
     "PortfolioResult",
     "ReturnStatistics",
     "RiskParityResult",
@@ -27,6 +29,7 @@ __all__ = [
     "calculate_fhs_percentiles",
     "calculate_fhs_risk_metrics",
     "calculate_filtered_historical_returns",
+    "calculate_greeks",
     "calculate_return_statistics",
     "calculate_simulation_percentiles",
     "calculate_simulation_risk_metrics",
@@ -36,13 +39,24 @@ __all__ = [
     "forecast_prices",
     "geometric_brownian_motion",
     "geometric_brownian_motion_paths",
+    "implied_volatility",
     "optimize_hierarchical_clustering",
     "optimize_nco",
     "optimize_portfolio",
     "optimize_risk_parity",
     "preferred_solvers",
+    "price_european",
+    "price_surface",
 ]
 
+from investment_portfolio.black_scholes import Greeks as Greeks
+from investment_portfolio.black_scholes import OptionPrice as OptionPrice
+from investment_portfolio.black_scholes import calculate_greeks as calculate_greeks
+from investment_portfolio.black_scholes import (
+    implied_volatility as implied_volatility,
+)
+from investment_portfolio.black_scholes import price_european as price_european
+from investment_portfolio.black_scholes import price_surface as price_surface
 from investment_portfolio.data import fetch_history as fetch_history
 from investment_portfolio.fhs import FHSMethod as FHSMethod
 from investment_portfolio.fhs import FHSPercentiles as FHSPercentiles

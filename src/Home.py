@@ -46,6 +46,11 @@ objective-based optimization within and across clusters. Supports
 minimum risk, maximum Sharpe, utility, and equal risk contribution.
 *Example: "How do I maximize Sharpe while using clustering
 for correlated assets?"*
+
+**Black-Scholes Option Pricing** — Price European call/put options,
+compute Greeks, visualize price sensitivity surfaces, and back out
+implied volatility.
+*Example: "What's a 1-year AAPL call worth at strike $150?"*
 """
     )
 
@@ -150,6 +155,19 @@ CVaR, drawdown-based, and tail-risk measures.
 **Use when:** You want the dimensionality reduction benefits of clustering
 but need a specific optimization objective — e.g. maximizing Sharpe ratio
 or targeting a utility function — rather than a fixed heuristic allocation.
+"""
+    )
+
+with st.expander("About Black-Scholes Option Pricing"):
+    st.markdown(
+        """
+Prices European call and put options using the **Black-Scholes-Merton** closed-form
+formula. Computes all five Greeks (Delta, Gamma, Theta, Vega, Rho), generates a
+price sensitivity heatmap across spot price and volatility, and solves for implied
+volatility from an observed market price.
+
+**Use when:** You want to quickly price a European option, understand its risk
+sensitivities, or back out the market's implied volatility from a quoted premium.
 """
     )
 
