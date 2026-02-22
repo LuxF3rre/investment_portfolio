@@ -3,11 +3,13 @@
 __all__ = [
     "OBJECTIVES",
     "RISK_MEASURES",
+    "RP_RISK_MEASURES",
     "FHSMethod",
     "FHSPercentiles",
     "FHSRiskMetrics",
     "PortfolioResult",
     "ReturnStatistics",
+    "RiskParityResult",
     "SimulationPercentiles",
     "SimulationRiskMetrics",
     "build_efficient_frontier",
@@ -20,6 +22,7 @@ __all__ = [
     "calculate_return_statistics",
     "calculate_simulation_percentiles",
     "calculate_simulation_risk_metrics",
+    "compare_risk_budgets",
     "fetch_history",
     "fetch_multi_history",
     "forecast_prices",
@@ -28,6 +31,7 @@ __all__ = [
     "optimize_portfolio",
     "optimize_risk_parity",
     "preferred_solvers",
+    "optimize_risk_parity",
 ]
 
 from investment_portfolio.data import fetch_history as fetch_history
@@ -77,8 +81,14 @@ from investment_portfolio.mpt import PortfolioResult as PortfolioResult
 from investment_portfolio.mpt import (
     build_efficient_frontier as build_efficient_frontier,
 )
+from investment_portfolio.mpt import build_portfolio as build_portfolio
 from investment_portfolio.mpt import (
     calculate_asset_statistics as calculate_asset_statistics,
 )
 from investment_portfolio.mpt import fetch_multi_history as fetch_multi_history
 from investment_portfolio.mpt import optimize_portfolio as optimize_portfolio
+from investment_portfolio.mpt import preferred_solvers as preferred_solvers
+from investment_portfolio.rp import RP_RISK_MEASURES as RP_RISK_MEASURES
+from investment_portfolio.rp import RiskParityResult as RiskParityResult
+from investment_portfolio.rp import compare_risk_budgets as compare_risk_budgets
+from investment_portfolio.rp import optimize_risk_parity as optimize_risk_parity

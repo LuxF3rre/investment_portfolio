@@ -31,6 +31,10 @@ risk assessment using real market history.
 **Portfolio Optimization** — Deciding how to allocate capital
 across multiple assets.
 *Example: "How should I split my money across 5 stocks?"*
+
+**Risk Parity** — Allocating capital so every asset contributes
+equally to portfolio risk — no return forecasts needed.
+*Example: "How do I balance risk across 4 ETFs?"*
 """
     )
 
@@ -79,6 +83,23 @@ objectives**, powered by
 
 **Use when:** You have 2 or more assets and want to find the allocation that
 maximizes return for a given risk level, or minimizes risk for a target return.
+"""
+    )
+
+with st.expander("About Risk Parity"):
+    st.markdown(
+        """
+Allocates capital so that every asset contributes **equally** (or by a custom
+budget) to total portfolio risk. Unlike traditional optimization, Risk Parity
+does **not** require return forecasts — only risk estimates.
+
+Choose from **20 convex risk measures** including Standard Deviation, CVaR,
+and drawdown-based measures. Set an equal risk budget (1/N) or define custom
+risk budgets per asset.
+
+**Use when:** You want a diversified portfolio where no single asset dominates
+your risk — especially useful when you distrust return forecasts or want
+a robust, low-maintenance allocation.
 """
     )
 

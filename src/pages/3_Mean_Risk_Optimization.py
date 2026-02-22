@@ -1,4 +1,4 @@
-"""Portfolio Optimization page — riskfolio-lib powered (Streamlit UI)."""
+"""Mean-Risk Optimization page — riskfolio-lib powered (Streamlit UI)."""
 
 import numpy as np
 import pandas as pd
@@ -38,12 +38,12 @@ _ALPHA_MEASURES: frozenset[str] = frozenset(
 _KAPPA_MEASURES: frozenset[str] = frozenset({"RLVaR", "RVRG", "RLDaR"})
 
 st.set_page_config(
-    page_title="Portfolio Optimization",
+    page_title="Mean-Risk Optimization",
     page_icon=":balance_scale:",
     layout="wide",
 )
 
-st.title("Portfolio Optimization")
+st.title("Mean-Risk Optimization")
 
 # -- Sidebar ------------------------------------------------------------------
 with st.sidebar:
@@ -230,7 +230,7 @@ _has_run: bool = (
 
 # -- Guide ---------------------------------------------------------------------
 with st.expander(
-    "What is Portfolio Optimization?",
+    "What is Mean-Risk Optimization?",
     expanded=(not _has_run),
 ):
     st.markdown(
