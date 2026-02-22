@@ -7,11 +7,18 @@ import pytest
 from scipy.stats import norm
 
 from investment_portfolio.black_scholes import (
+    BinaryPrice,
     Greeks,
     OptionPrice,
+    PerpetualPutResult,
+    calculate_fx_greeks,
     calculate_greeks,
     implied_volatility,
+    price_binary,
+    price_discrete_dividend,
     price_european,
+    price_fx_option,
+    price_perpetual_put,
     price_surface,
 )
 
@@ -714,3 +721,690 @@ class TestPriceSurface:
         defaults[field] = value
         with pytest.raises(ValueError, match=match):
             price_surface(**defaults)  # type: ignore[arg-type]
+
+
+class TestContinuousDividend:
+    """Tests for continuous dividend yield in price_european."""
+
+    def test_put_call_parity_with_dividend(self) -> None:
+        """C - P = S*e^{-qT} - K*e^{-rT} with dividend yield."""
+        q = 0.03
+        result = price_european(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+            dividend_yield=q,
+        )
+        lhs = result.call - result.put
+        rhs = _REF_S * math.exp(-q * _REF_T) - _REF_K * math.exp(-_REF_R * _REF_T)
+        assert lhs == pytest.approx(rhs, abs=1e-10)
+
+    def test_dividend_reduces_call_price(self) -> None:
+        """A positive dividend yield reduces call price vs q=0."""
+        no_div = price_european(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+        )
+        with_div = price_european(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+            dividend_yield=0.03,
+        )
+        assert with_div.call < no_div.call
+
+    def test_dividend_increases_put_price(self) -> None:
+        """A positive dividend yield increases put price vs q=0."""
+        no_div = price_european(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+        )
+        with_div = price_european(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+            dividend_yield=0.03,
+        )
+        assert with_div.put > no_div.put
+
+    def test_zero_dividend_matches_standard(self) -> None:
+        """dividend_yield=0 matches standard BS exactly."""
+        standard = price_european(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+        )
+        with_zero = price_european(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+            dividend_yield=0.0,
+        )
+        assert with_zero.call == pytest.approx(standard.call, abs=1e-12)
+        assert with_zero.put == pytest.approx(standard.put, abs=1e-12)
+
+    def test_negative_dividend_raises(self) -> None:
+        """Negative dividend_yield raises ValueError."""
+        with pytest.raises(ValueError, match="dividend_yield must be non-negative"):
+            price_european(
+                spot=_REF_S,
+                strike=_REF_K,
+                time_to_expiry=_REF_T,
+                risk_free_rate=_REF_R,
+                volatility=_REF_VOL,
+                dividend_yield=-0.01,
+            )
+
+
+class TestContinuousDividendGreeks:
+    """Tests for Greeks with continuous dividend yield."""
+
+    def test_call_delta_bounded_by_div_discount(self) -> None:
+        """Call delta is bounded by [0, e^{-qT}]."""
+        q = 0.03
+        g = calculate_greeks(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+            is_call=True,
+            dividend_yield=q,
+        )
+        assert 0 <= g.delta <= math.exp(-q * _REF_T)
+
+    def test_call_put_delta_sum_equals_div_discount(self) -> None:
+        """Call delta - put delta = e^{-qT}."""
+        q = 0.03
+        call_g = calculate_greeks(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+            is_call=True,
+            dividend_yield=q,
+        )
+        put_g = calculate_greeks(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+            is_call=False,
+            dividend_yield=q,
+        )
+        assert call_g.delta - put_g.delta == pytest.approx(
+            math.exp(-q * _REF_T), abs=1e-10
+        )
+
+    def test_gamma_positive_with_dividend(self) -> None:
+        """Gamma is positive with dividend yield."""
+        g = calculate_greeks(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+            is_call=True,
+            dividend_yield=0.03,
+        )
+        assert g.gamma > 0
+
+    def test_vega_positive_with_dividend(self) -> None:
+        """Vega is positive with dividend yield."""
+        g = calculate_greeks(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+            is_call=True,
+            dividend_yield=0.03,
+        )
+        assert g.vega > 0
+
+
+class TestPriceDiscreteDividend:
+    """Tests for the price_discrete_dividend function."""
+
+    def test_adjusted_spot_matches_formula(self) -> None:
+        """Adjusted spot = S * (1-d)^n gives expected price."""
+        d_prop = 0.02
+        n_div = 4
+        adjusted_spot = _REF_S * (1 - d_prop) ** n_div
+        expected = price_european(
+            spot=adjusted_spot,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+        )
+        result = price_discrete_dividend(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+            dividend_proportion=d_prop,
+            num_dividends=n_div,
+        )
+        assert result.call == pytest.approx(expected.call, abs=1e-10)
+        assert result.put == pytest.approx(expected.put, abs=1e-10)
+
+    def test_zero_dividends_matches_standard(self) -> None:
+        """num_dividends=0 matches standard BS."""
+        standard = price_european(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+        )
+        result = price_discrete_dividend(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+            dividend_proportion=0.05,
+            num_dividends=0,
+        )
+        assert result.call == pytest.approx(standard.call, abs=1e-12)
+        assert result.put == pytest.approx(standard.put, abs=1e-12)
+
+    def test_zero_proportion_matches_standard(self) -> None:
+        """dividend_proportion=0 matches standard BS."""
+        standard = price_european(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+        )
+        result = price_discrete_dividend(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+            dividend_proportion=0.0,
+            num_dividends=4,
+        )
+        assert result.call == pytest.approx(standard.call, abs=1e-12)
+        assert result.put == pytest.approx(standard.put, abs=1e-12)
+
+    def test_invalid_proportion_raises(self) -> None:
+        """Invalid dividend_proportion raises ValueError."""
+        with pytest.raises(ValueError, match="dividend_proportion must be in"):
+            price_discrete_dividend(
+                spot=_REF_S,
+                strike=_REF_K,
+                time_to_expiry=_REF_T,
+                risk_free_rate=_REF_R,
+                volatility=_REF_VOL,
+                dividend_proportion=1.0,
+                num_dividends=4,
+            )
+
+    def test_negative_proportion_raises(self) -> None:
+        """Negative dividend_proportion raises ValueError."""
+        with pytest.raises(ValueError, match="dividend_proportion must be in"):
+            price_discrete_dividend(
+                spot=_REF_S,
+                strike=_REF_K,
+                time_to_expiry=_REF_T,
+                risk_free_rate=_REF_R,
+                volatility=_REF_VOL,
+                dividend_proportion=-0.01,
+                num_dividends=4,
+            )
+
+    def test_put_call_parity_with_adjusted_forward(self) -> None:
+        """Put-call parity holds with adjusted spot."""
+        d_prop = 0.02
+        n_div = 4
+        result = price_discrete_dividend(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+            dividend_proportion=d_prop,
+            num_dividends=n_div,
+        )
+        adjusted_spot = _REF_S * (1 - d_prop) ** n_div
+        lhs = result.call - result.put
+        rhs = adjusted_spot - _REF_K * math.exp(-_REF_R * _REF_T)
+        assert lhs == pytest.approx(rhs, abs=1e-10)
+
+
+class TestPriceBinary:
+    """Tests for the price_binary function."""
+
+    def test_returns_binary_price_dataclass(self) -> None:
+        """Return type is BinaryPrice."""
+        result = price_binary(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+        )
+        assert isinstance(result, BinaryPrice)
+
+    def test_all_prices_non_negative(self) -> None:
+        """All four binary prices are non-negative."""
+        result = price_binary(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+        )
+        assert result.cash_or_nothing_call >= 0
+        assert result.cash_or_nothing_put >= 0
+        assert result.asset_or_nothing_call >= 0
+        assert result.asset_or_nothing_put >= 0
+
+    def test_cash_or_nothing_sum_equals_discount(self) -> None:
+        """Cash-or-nothing call + put = e^{-rT}."""
+        result = price_binary(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+        )
+        expected = math.exp(-_REF_R * _REF_T)
+        actual = result.cash_or_nothing_call + result.cash_or_nothing_put
+        assert actual == pytest.approx(expected, abs=1e-10)
+
+    def test_asset_or_nothing_sum_equals_div_discounted_spot(self) -> None:
+        """Asset-or-nothing call + put = S * e^{-qT}."""
+        q = 0.02
+        result = price_binary(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+            dividend_yield=q,
+        )
+        expected = _REF_S * math.exp(-q * _REF_T)
+        actual = result.asset_or_nothing_call + result.asset_or_nothing_put
+        assert actual == pytest.approx(expected, abs=1e-10)
+
+    def test_asset_or_nothing_sum_no_dividend(self) -> None:
+        """Asset-or-nothing call + put = S when q=0."""
+        result = price_binary(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+        )
+        actual = result.asset_or_nothing_call + result.asset_or_nothing_put
+        assert actual == pytest.approx(_REF_S, abs=1e-10)
+
+    def test_known_values(self) -> None:
+        """Cash-or-nothing call matches hand-computed value."""
+        d1 = (math.log(_REF_S / _REF_K) + (_REF_R + 0.5 * _REF_VOL**2) * _REF_T) / (
+            _REF_VOL * math.sqrt(_REF_T)
+        )
+        d2 = d1 - _REF_VOL * math.sqrt(_REF_T)
+        expected_con_call = math.exp(-_REF_R * _REF_T) * norm.cdf(d2)
+
+        result = price_binary(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+        )
+        assert result.cash_or_nothing_call == pytest.approx(
+            expected_con_call, abs=1e-10
+        )
+
+    @pytest.mark.parametrize(
+        ("field", "value", "match"),
+        [
+            ("spot", 0.0, "spot must be positive"),
+            ("strike", -1.0, "strike must be positive"),
+            ("volatility", 0.0, "volatility must be positive"),
+        ],
+    )
+    def test_invalid_inputs_raise(self, field: str, value: float, match: str) -> None:
+        """Invalid inputs raise ValueError."""
+        defaults: dict[str, float] = {
+            "spot": _REF_S,
+            "strike": _REF_K,
+            "time_to_expiry": _REF_T,
+            "risk_free_rate": _REF_R,
+            "volatility": _REF_VOL,
+        }
+        defaults[field] = value
+        with pytest.raises(ValueError, match=match):
+            price_binary(**defaults)
+
+
+class TestPriceFxOption:
+    """Tests for the price_fx_option function."""
+
+    def test_equivalent_to_european_with_dividend(self) -> None:
+        """FX price matches price_european with dividend_yield=foreign_rate."""
+        rd, rf = 0.05, 0.02
+        fx_result = price_fx_option(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            domestic_rate=rd,
+            foreign_rate=rf,
+            volatility=_REF_VOL,
+        )
+        eu_result = price_european(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=rd,
+            volatility=_REF_VOL,
+            dividend_yield=rf,
+        )
+        assert fx_result.call == pytest.approx(eu_result.call, abs=1e-12)
+        assert fx_result.put == pytest.approx(eu_result.put, abs=1e-12)
+
+    def test_put_call_parity(self) -> None:
+        """C - P = S*e^{-rf*T} - K*e^{-rd*T} for FX options."""
+        rd, rf = 0.05, 0.02
+        result = price_fx_option(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            domestic_rate=rd,
+            foreign_rate=rf,
+            volatility=_REF_VOL,
+        )
+        lhs = result.call - result.put
+        rhs = _REF_S * math.exp(-rf * _REF_T) - _REF_K * math.exp(-rd * _REF_T)
+        assert lhs == pytest.approx(rhs, abs=1e-10)
+
+    def test_negative_domestic_rate_raises(self) -> None:
+        """Negative domestic rate raises ValueError."""
+        with pytest.raises(ValueError, match="domestic_rate must be non-negative"):
+            price_fx_option(
+                spot=_REF_S,
+                strike=_REF_K,
+                time_to_expiry=_REF_T,
+                domestic_rate=-0.01,
+                foreign_rate=0.02,
+                volatility=_REF_VOL,
+            )
+
+    def test_negative_foreign_rate_raises(self) -> None:
+        """Negative foreign rate raises ValueError."""
+        with pytest.raises(ValueError, match="foreign_rate must be non-negative"):
+            price_fx_option(
+                spot=_REF_S,
+                strike=_REF_K,
+                time_to_expiry=_REF_T,
+                domestic_rate=0.05,
+                foreign_rate=-0.01,
+                volatility=_REF_VOL,
+            )
+
+
+class TestCalculateFxGreeks:
+    """Tests for the calculate_fx_greeks function."""
+
+    def test_equivalent_to_greeks_with_dividend(self) -> None:
+        """FX Greeks match calculate_greeks with dividend_yield=foreign_rate."""
+        rd, rf = 0.05, 0.02
+        fx_g = calculate_fx_greeks(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            domestic_rate=rd,
+            foreign_rate=rf,
+            volatility=_REF_VOL,
+            is_call=True,
+        )
+        eu_g = calculate_greeks(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=rd,
+            volatility=_REF_VOL,
+            is_call=True,
+            dividend_yield=rf,
+        )
+        assert fx_g.delta == pytest.approx(eu_g.delta, abs=1e-12)
+        assert fx_g.gamma == pytest.approx(eu_g.gamma, abs=1e-12)
+        assert fx_g.theta == pytest.approx(eu_g.theta, abs=1e-12)
+        assert fx_g.vega == pytest.approx(eu_g.vega, abs=1e-12)
+        assert fx_g.rho == pytest.approx(eu_g.rho, abs=1e-12)
+
+    def test_negative_domestic_rate_raises(self) -> None:
+        """Negative domestic rate raises ValueError."""
+        with pytest.raises(ValueError, match="domestic_rate must be non-negative"):
+            calculate_fx_greeks(
+                spot=_REF_S,
+                strike=_REF_K,
+                time_to_expiry=_REF_T,
+                domestic_rate=-0.01,
+                foreign_rate=0.02,
+                volatility=_REF_VOL,
+                is_call=True,
+            )
+
+    def test_negative_foreign_rate_raises(self) -> None:
+        """Negative foreign rate raises ValueError."""
+        with pytest.raises(ValueError, match="foreign_rate must be non-negative"):
+            calculate_fx_greeks(
+                spot=_REF_S,
+                strike=_REF_K,
+                time_to_expiry=_REF_T,
+                domestic_rate=0.05,
+                foreign_rate=-0.01,
+                volatility=_REF_VOL,
+                is_call=True,
+            )
+
+
+class TestPricePerpetualPut:
+    """Tests for the price_perpetual_put function."""
+
+    def test_returns_perpetual_put_result(self) -> None:
+        """Return type is PerpetualPutResult."""
+        result = price_perpetual_put(
+            spot=_REF_S,
+            strike=_REF_K,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+        )
+        assert isinstance(result, PerpetualPutResult)
+
+    def test_price_positive_above_boundary(self) -> None:
+        """Price > 0 when spot > exercise boundary."""
+        result = price_perpetual_put(
+            spot=_REF_S,
+            strike=_REF_K,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+        )
+        assert result.price > 0
+        assert _REF_S > result.exercise_boundary
+
+    def test_price_equals_intrinsic_below_boundary(self) -> None:
+        """Price = K - S when spot <= exercise boundary."""
+        result = price_perpetual_put(
+            spot=_REF_S,
+            strike=_REF_K,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+        )
+        # Use a spot well below the boundary
+        low_spot = result.exercise_boundary * 0.5
+        low_result = price_perpetual_put(
+            spot=low_spot,
+            strike=_REF_K,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+        )
+        assert low_result.price == pytest.approx(_REF_K - low_spot, abs=1e-10)
+
+    def test_exercise_boundary_below_strike(self) -> None:
+        """Exercise boundary is below strike."""
+        result = price_perpetual_put(
+            spot=_REF_S,
+            strike=_REF_K,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+        )
+        assert result.exercise_boundary < _REF_K
+
+    def test_higher_vol_higher_price(self) -> None:
+        """Higher volatility gives a higher perpetual put price."""
+        low_vol = price_perpetual_put(
+            spot=_REF_S,
+            strike=_REF_K,
+            risk_free_rate=_REF_R,
+            volatility=0.15,
+        )
+        high_vol = price_perpetual_put(
+            spot=_REF_S,
+            strike=_REF_K,
+            risk_free_rate=_REF_R,
+            volatility=0.30,
+        )
+        assert high_vol.price > low_vol.price
+
+    def test_zero_rate_raises(self) -> None:
+        """risk_free_rate=0 raises ValueError."""
+        with pytest.raises(
+            ValueError, match="risk_free_rate must be strictly positive"
+        ):
+            price_perpetual_put(
+                spot=_REF_S,
+                strike=_REF_K,
+                risk_free_rate=0.0,
+                volatility=_REF_VOL,
+            )
+
+    def test_negative_rate_raises(self) -> None:
+        """Negative risk_free_rate raises ValueError."""
+        with pytest.raises(
+            ValueError, match="risk_free_rate must be strictly positive"
+        ):
+            price_perpetual_put(
+                spot=_REF_S,
+                strike=_REF_K,
+                risk_free_rate=-0.01,
+                volatility=_REF_VOL,
+            )
+
+    @pytest.mark.parametrize(
+        ("field", "value", "match"),
+        [
+            ("spot", 0.0, "spot must be positive"),
+            ("strike", -1.0, "strike must be positive"),
+            ("volatility", 0.0, "volatility must be positive"),
+        ],
+    )
+    def test_invalid_inputs_raise(self, field: str, value: float, match: str) -> None:
+        """Invalid inputs raise ValueError."""
+        defaults: dict[str, float] = {
+            "spot": _REF_S,
+            "strike": _REF_K,
+            "risk_free_rate": _REF_R,
+            "volatility": _REF_VOL,
+        }
+        defaults[field] = value
+        with pytest.raises(ValueError, match=match):
+            price_perpetual_put(**defaults)
+
+    def test_lambda_2_negative(self) -> None:
+        """lambda_2 is always negative."""
+        result = price_perpetual_put(
+            spot=_REF_S,
+            strike=_REF_K,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+        )
+        assert result.lambda_2 < 0
+
+
+class TestImpliedVolatilityWithDividend:
+    """Tests for implied_volatility with dividend yield."""
+
+    def test_round_trip_call_with_dividend(self) -> None:
+        """Price -> IV -> price round-trip with dividend_yield > 0."""
+        q = 0.03
+        op = price_european(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+            dividend_yield=q,
+        )
+        iv = implied_volatility(
+            market_price=op.call,
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            is_call=True,
+            dividend_yield=q,
+        )
+        assert iv == pytest.approx(_REF_VOL, abs=1e-6)
+
+    def test_round_trip_put_with_dividend(self) -> None:
+        """Price -> IV -> price round-trip for put with dividend_yield > 0."""
+        q = 0.03
+        op = price_european(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+            dividend_yield=q,
+        )
+        iv = implied_volatility(
+            market_price=op.put,
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            is_call=False,
+            dividend_yield=q,
+        )
+        assert iv == pytest.approx(_REF_VOL, abs=1e-6)
+
+    def test_negative_dividend_raises(self) -> None:
+        """Negative dividend_yield raises ValueError."""
+        with pytest.raises(ValueError, match="dividend_yield must be non-negative"):
+            implied_volatility(
+                market_price=10.0,
+                spot=_REF_S,
+                strike=_REF_K,
+                time_to_expiry=_REF_T,
+                risk_free_rate=_REF_R,
+                is_call=True,
+                dividend_yield=-0.01,
+            )

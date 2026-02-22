@@ -48,8 +48,9 @@ minimum risk, maximum Sharpe, utility, and equal risk contribution.
 for correlated assets?"*
 
 **Black-Scholes Option Pricing** — Price European call/put options,
-compute Greeks, visualize price sensitivity surfaces, and back out
-implied volatility.
+compute Greeks, visualize price sensitivity surfaces, back out
+implied volatility, and explore extensions (dividends, binary options,
+FX options, perpetual American put).
 *Example: "What's a 1-year AAPL call worth at strike $150?"*
 """
     )
@@ -166,8 +167,14 @@ formula. Computes all five Greeks (Delta, Gamma, Theta, Vega, Rho), generates a
 price sensitivity heatmap across spot price and volatility, and solves for implied
 volatility from an observed market price.
 
+Includes extensions: **continuous dividend yield** (Merton 1973), **discrete
+proportional dividends**, **binary/digital options** (cash-or-nothing and
+asset-or-nothing), **FX options** (Garman-Kohlhagen 1983), and **perpetual
+American put** (closed-form for T \u2192 \u221e).
+
 **Use when:** You want to quickly price a European option, understand its risk
-sensitivities, or back out the market's implied volatility from a quoted premium.
+sensitivities, back out implied volatility, or explore pricing extensions for
+dividend-paying assets, currencies, and digital options.
 """
     )
 

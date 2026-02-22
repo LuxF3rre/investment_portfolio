@@ -10,6 +10,7 @@ __all__ = [
     "OBJECTIVES",
     "RISK_MEASURES",
     "RP_RISK_MEASURES",
+    "BinaryPrice",
     "FHSMethod",
     "FHSPercentiles",
     "FHSRiskMetrics",
@@ -17,6 +18,7 @@ __all__ = [
     "HCResult",
     "NCOResult",
     "OptionPrice",
+    "PerpetualPutResult",
     "PortfolioResult",
     "ReturnStatistics",
     "RiskParityResult",
@@ -29,6 +31,7 @@ __all__ = [
     "calculate_fhs_percentiles",
     "calculate_fhs_risk_metrics",
     "calculate_filtered_historical_returns",
+    "calculate_fx_greeks",
     "calculate_greeks",
     "calculate_return_statistics",
     "calculate_simulation_percentiles",
@@ -45,17 +48,36 @@ __all__ = [
     "optimize_portfolio",
     "optimize_risk_parity",
     "preferred_solvers",
+    "price_binary",
+    "price_discrete_dividend",
     "price_european",
+    "price_fx_option",
+    "price_perpetual_put",
     "price_surface",
 ]
 
+from investment_portfolio.black_scholes import BinaryPrice as BinaryPrice
 from investment_portfolio.black_scholes import Greeks as Greeks
 from investment_portfolio.black_scholes import OptionPrice as OptionPrice
+from investment_portfolio.black_scholes import (
+    PerpetualPutResult as PerpetualPutResult,
+)
+from investment_portfolio.black_scholes import (
+    calculate_fx_greeks as calculate_fx_greeks,
+)
 from investment_portfolio.black_scholes import calculate_greeks as calculate_greeks
 from investment_portfolio.black_scholes import (
     implied_volatility as implied_volatility,
 )
+from investment_portfolio.black_scholes import price_binary as price_binary
+from investment_portfolio.black_scholes import (
+    price_discrete_dividend as price_discrete_dividend,
+)
 from investment_portfolio.black_scholes import price_european as price_european
+from investment_portfolio.black_scholes import price_fx_option as price_fx_option
+from investment_portfolio.black_scholes import (
+    price_perpetual_put as price_perpetual_put,
+)
 from investment_portfolio.black_scholes import price_surface as price_surface
 from investment_portfolio.data import fetch_history as fetch_history
 from investment_portfolio.fhs import FHSMethod as FHSMethod
