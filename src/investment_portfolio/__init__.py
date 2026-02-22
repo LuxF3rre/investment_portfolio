@@ -5,6 +5,8 @@ __all__ = [
     "HC_MODELS",
     "HC_RISK_MEASURES",
     "LINKAGE_METHODS",
+    "NCO_OBJECTIVES",
+    "NCO_RISK_MEASURES",
     "OBJECTIVES",
     "RISK_MEASURES",
     "RP_RISK_MEASURES",
@@ -12,6 +14,7 @@ __all__ = [
     "FHSPercentiles",
     "FHSRiskMetrics",
     "HCResult",
+    "NCOResult",
     "PortfolioResult",
     "ReturnStatistics",
     "RiskParityResult",
@@ -34,6 +37,7 @@ __all__ = [
     "geometric_brownian_motion",
     "geometric_brownian_motion_paths",
     "optimize_hierarchical_clustering",
+    "optimize_nco",
     "optimize_portfolio",
     "optimize_risk_parity",
     "preferred_solvers",
@@ -101,6 +105,10 @@ from investment_portfolio.mpt import (
 from investment_portfolio.mpt import fetch_multi_history as fetch_multi_history
 from investment_portfolio.mpt import optimize_portfolio as optimize_portfolio
 from investment_portfolio.mpt import preferred_solvers as preferred_solvers
+from investment_portfolio.nco import NCO_OBJECTIVES as NCO_OBJECTIVES
+from investment_portfolio.nco import NCO_RISK_MEASURES as NCO_RISK_MEASURES
+from investment_portfolio.nco import NCOResult as NCOResult
+from investment_portfolio.nco import optimize_nco as optimize_nco
 from investment_portfolio.rp import RP_RISK_MEASURES as RP_RISK_MEASURES
 from investment_portfolio.rp import RiskParityResult as RiskParityResult
 from investment_portfolio.rp import compare_risk_budgets as compare_risk_budgets

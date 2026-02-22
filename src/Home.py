@@ -40,6 +40,12 @@ contributes equally to portfolio risk — no return forecasts needed.
 (HRP/HERC) that avoids covariance matrix inversion — more robust
 with many assets or noisy correlations.
 *Example: "How do I allocate across 10 sector ETFs without unstable weights?"*
+
+**Nested Clustered Optimization** — Combines clustering with
+objective-based optimization within and across clusters. Supports
+minimum risk, maximum Sharpe, utility, and equal risk contribution.
+*Example: "How do I maximize Sharpe while using clustering
+for correlated assets?"*
 """
     )
 
@@ -125,6 +131,25 @@ them.
 **Use when:** You have many correlated assets, want more stable allocations
 that don't swing wildly with small data changes, or want a method that is
 robust to estimation error in covariance matrices.
+"""
+    )
+
+with st.expander("About Nested Clustered Optimization"):
+    st.markdown(
+        """
+Nested Clustered Optimization (NCO) combines hierarchical clustering with
+objective-based portfolio optimization. Unlike HRP/HERC which use heuristic
+allocation rules, NCO applies a full optimization step **within** each cluster
+and then **across** clusters — giving you the robustness of clustering with
+the flexibility of objective-driven optimization.
+
+Choose from **4 objectives** (Minimum Risk, Maximum Sharpe, Utility,
+Equal Risk Contribution) and **24 risk measures** including variance,
+CVaR, drawdown-based, and tail-risk measures.
+
+**Use when:** You want the dimensionality reduction benefits of clustering
+but need a specific optimization objective — e.g. maximizing Sharpe ratio
+or targeting a utility function — rather than a fixed heuristic allocation.
 """
     )
 
