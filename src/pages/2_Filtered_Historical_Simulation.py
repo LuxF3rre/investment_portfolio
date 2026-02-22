@@ -410,3 +410,10 @@ with tab_pct:
             for k, v in dataclasses.asdict(_d["stats"]).items()
         ]
         st.table(pd.DataFrame(stat_rows))
+
+st.divider()
+st.markdown(
+    "<div style='text-align: center'>Made with ❤ by Maurycy Blaszczak"
+    " (<a href='https://maurycyblaszczak.com/'>maurycyblaszczak.com</a>)</div>",
+    unsafe_allow_html=True,
+)

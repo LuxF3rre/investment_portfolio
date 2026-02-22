@@ -532,3 +532,10 @@ with tab_stats:
             }
         )
     st.table(pd.DataFrame(rows))
+
+st.divider()
+st.markdown(
+    "<div style='text-align: center'>Made with ❤ by Maurycy Blaszczak"
+    " (<a href='https://maurycyblaszczak.com/'>maurycyblaszczak.com</a>)</div>",
+    unsafe_allow_html=True,
+)

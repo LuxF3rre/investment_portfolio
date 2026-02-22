@@ -315,3 +315,10 @@ with tab_pct:
         "Probability of positive return",
         f"{_d['risk'].prob_profit:.1%}",
     )
+
+st.divider()
+st.markdown(
+    "<div style='text-align: center'>Made with ❤ by Maurycy Blaszczak"
+    " (<a href='https://maurycyblaszczak.com/'>maurycyblaszczak.com</a>)</div>",
+    unsafe_allow_html=True,
+)
