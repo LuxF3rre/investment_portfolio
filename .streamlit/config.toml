@@ -1,0 +1,22 @@
+# Catppuccin Macchiato — Mauve/Rosewater (dark)
+[theme]
+base = "dark"
+font = "monospace"
+
+primaryColor = "#c6a0f6"            # Mauve
+backgroundColor = "#24273a"         # Base
+secondaryBackgroundColor = "#363a4f" # Surface0
+textColor = "#cad3f5"               # Text
+borderColor = "#494d64"             # Surface1
+linkColor = "#f4dbd6"               # Rosewater
+
+redColor = "#ed8796"
+orangeColor = "#f5a97f"             # Peach
+yellowColor = "#eed49f"
+greenColor = "#a6da95"
+blueColor = "#8aadf4"
+violetColor = "#c6a0f6"             # Mauve
+grayColor = "#8087a2"               # Overlay1
+
+codeTextColor = "#cad3f5"           # Text
+codeBackgroundColor = "#1e2030"     # Mantle
