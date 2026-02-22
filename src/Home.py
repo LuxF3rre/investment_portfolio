@@ -28,12 +28,12 @@ over months to years.
 risk assessment using real market history.
 *Example: "What's the 250-day risk of my EUR/USD position?"*
 
-**Portfolio Optimization** — Deciding how to allocate capital
-across multiple assets.
+**Mean-Risk Optimization** — Deciding how to allocate capital
+across multiple assets using return/risk tradeoffs.
 *Example: "How should I split my money across 5 stocks?"*
 
-**Risk Parity** — Allocating capital so every asset contributes
-equally to portfolio risk — no return forecasts needed.
+**Risk Parity Optimization** — Allocating capital so every asset
+contributes equally to portfolio risk — no return forecasts needed.
 *Example: "How do I balance risk across 4 ETFs?"*
 """
     )
@@ -73,7 +73,7 @@ reflects how volatile the market is *right now*, not just on average.
 """
     )
 
-with st.expander("About Portfolio Optimization"):
+with st.expander("About Mean-Risk Optimization"):
     st.markdown(
         """
 Finds the optimal way to allocate capital across multiple assets using Modern
@@ -86,7 +86,7 @@ maximizes return for a given risk level, or minimizes risk for a target return.
 """
     )
 
-with st.expander("About Risk Parity"):
+with st.expander("About Risk Parity Optimization"):
     st.markdown(
         """
 Allocates capital so that every asset contributes **equally** (or by a custom
