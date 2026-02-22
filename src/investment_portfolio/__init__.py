@@ -1,12 +1,17 @@
 """Investment portfolio analysis tools."""
 
 __all__ = [
+    "CODEPENDENCE_MEASURES",
+    "HC_MODELS",
+    "HC_RISK_MEASURES",
+    "LINKAGE_METHODS",
     "OBJECTIVES",
     "RISK_MEASURES",
     "RP_RISK_MEASURES",
     "FHSMethod",
     "FHSPercentiles",
     "FHSRiskMetrics",
+    "HCResult",
     "PortfolioResult",
     "ReturnStatistics",
     "RiskParityResult",
@@ -28,10 +33,10 @@ __all__ = [
     "forecast_prices",
     "geometric_brownian_motion",
     "geometric_brownian_motion_paths",
+    "optimize_hierarchical_clustering",
     "optimize_portfolio",
     "optimize_risk_parity",
     "preferred_solvers",
-    "optimize_risk_parity",
 ]
 
 from investment_portfolio.data import fetch_history as fetch_history
@@ -53,6 +58,14 @@ from investment_portfolio.fhs import (
 )
 from investment_portfolio.fhs import (
     forecast_prices as forecast_prices,
+)
+from investment_portfolio.hcp import CODEPENDENCE_MEASURES as CODEPENDENCE_MEASURES
+from investment_portfolio.hcp import HC_MODELS as HC_MODELS
+from investment_portfolio.hcp import HC_RISK_MEASURES as HC_RISK_MEASURES
+from investment_portfolio.hcp import LINKAGE_METHODS as LINKAGE_METHODS
+from investment_portfolio.hcp import HCResult as HCResult
+from investment_portfolio.hcp import (
+    optimize_hierarchical_clustering as optimize_hierarchical_clustering,
 )
 from investment_portfolio.monte_carlo import (
     SimulationPercentiles as SimulationPercentiles,

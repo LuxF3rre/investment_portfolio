@@ -35,6 +35,11 @@ across multiple assets using return/risk tradeoffs.
 **Risk Parity Optimization** — Allocating capital so every asset
 contributes equally to portfolio risk — no return forecasts needed.
 *Example: "How do I balance risk across 4 ETFs?"*
+
+**Hierarchical Clustering Optimization** — Tree-based allocation
+(HRP/HERC) that avoids covariance matrix inversion — more robust
+with many assets or noisy correlations.
+*Example: "How do I allocate across 10 sector ETFs without unstable weights?"*
 """
     )
 
@@ -100,6 +105,26 @@ risk budgets per asset.
 **Use when:** You want a diversified portfolio where no single asset dominates
 your risk — especially useful when you distrust return forecasts or want
 a robust, low-maintenance allocation.
+"""
+    )
+
+with st.expander("About Hierarchical Clustering Optimization"):
+    st.markdown(
+        """
+Uses hierarchical clustering (HRP or HERC) to build a tree of asset
+relationships, then allocates weights without inverting the covariance matrix.
+This avoids the numerical instability that plagues traditional optimizers when
+assets are highly correlated or the number of assets exceeds the number of
+observations.
+
+Choose from **35 risk measures**, **11 codependence measures**, and
+**8 linkage methods**. HRP allocates via recursive bisection; HERC
+identifies flat clusters and equalizes risk contribution within and between
+them.
+
+**Use when:** You have many correlated assets, want more stable allocations
+that don't swing wildly with small data changes, or want a method that is
+robust to estimation error in covariance matrices.
 """
     )
 
