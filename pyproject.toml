@@ -107,7 +107,7 @@ ban-relative-imports = "all"
 pythonpath = "src"
 
 [tool.coverage.run]
-omit = ["Home.py", "pages/*"]
+omit = ["src/Home.py", "src/pages/*"]
 
 [tool.ty.environment]
 python-version = "3.12"
