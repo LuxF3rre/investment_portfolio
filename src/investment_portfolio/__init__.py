@@ -11,42 +11,64 @@ __all__ = [
     "OBJECTIVES",
     "RISK_MEASURES",
     "RP_RISK_MEASURES",
+    "AIRRResult",
     "BinaryPrice",
     "FHSMethod",
     "FHSPercentiles",
     "FHSRiskMetrics",
+    "FREQResult",
     "ForwardVarianceCurve",
+    "GIRRResult",
     "GPVModelConfig",
     "GPVOptionPrice",
     "GPVSimulationResult",
     "Greeks",
     "HCResult",
+    "HorizonIRRResult",
+    "IRRResult",
     "KernelType",
+    "MIRRResult",
     "NCOResult",
+    "NPVProfile",
     "OptionPrice",
+    "PairwiseIRRResult",
     "PerpetualPutResult",
     "PortfolioResult",
     "ReturnStatistics",
     "RiskParityResult",
+    "SignChangeInfo",
     "SimulationPercentiles",
     "SimulationRiskMetrics",
     "VIXResult",
+    "XIRRResult",
+    "analyze_sign_changes",
     "build_efficient_frontier",
     "build_portfolio",
+    "calculate_airr",
     "calculate_annualized_volatility",
     "calculate_asset_statistics",
     "calculate_fhs_percentiles",
     "calculate_fhs_risk_metrics",
     "calculate_filtered_historical_returns",
+    "calculate_freq",
     "calculate_fx_greeks",
+    "calculate_girr",
     "calculate_greeks",
+    "calculate_horizon_irr",
+    "calculate_irr",
+    "calculate_mirr",
+    "calculate_npv",
+    "calculate_npv_profile",
+    "calculate_pairwise_irr",
     "calculate_return_statistics",
     "calculate_simulation_percentiles",
     "calculate_simulation_risk_metrics",
+    "calculate_xirr",
     "compare_risk_budgets",
     "compute_vix_squared",
     "fetch_history",
     "fetch_multi_history",
+    "find_all_irr_roots",
     "forecast_prices",
     "forward_variance",
     "geometric_brownian_motion",
@@ -140,6 +162,32 @@ from investment_portfolio.hcp import HCResult as HCResult
 from investment_portfolio.hcp import (
     optimize_hierarchical_clustering as optimize_hierarchical_clustering,
 )
+from investment_portfolio.irr import AIRRResult as AIRRResult
+from investment_portfolio.irr import FREQResult as FREQResult
+from investment_portfolio.irr import GIRRResult as GIRRResult
+from investment_portfolio.irr import HorizonIRRResult as HorizonIRRResult
+from investment_portfolio.irr import IRRResult as IRRResult
+from investment_portfolio.irr import MIRRResult as MIRRResult
+from investment_portfolio.irr import NPVProfile as NPVProfile
+from investment_portfolio.irr import PairwiseIRRResult as PairwiseIRRResult
+from investment_portfolio.irr import SignChangeInfo as SignChangeInfo
+from investment_portfolio.irr import XIRRResult as XIRRResult
+from investment_portfolio.irr import analyze_sign_changes as analyze_sign_changes
+from investment_portfolio.irr import calculate_airr as calculate_airr
+from investment_portfolio.irr import calculate_freq as calculate_freq
+from investment_portfolio.irr import calculate_girr as calculate_girr
+from investment_portfolio.irr import (
+    calculate_horizon_irr as calculate_horizon_irr,
+)
+from investment_portfolio.irr import calculate_irr as calculate_irr
+from investment_portfolio.irr import calculate_mirr as calculate_mirr
+from investment_portfolio.irr import calculate_npv as calculate_npv
+from investment_portfolio.irr import calculate_npv_profile as calculate_npv_profile
+from investment_portfolio.irr import (
+    calculate_pairwise_irr as calculate_pairwise_irr,
+)
+from investment_portfolio.irr import calculate_xirr as calculate_xirr
+from investment_portfolio.irr import find_all_irr_roots as find_all_irr_roots
 from investment_portfolio.monte_carlo import (
     SimulationPercentiles as SimulationPercentiles,
 )

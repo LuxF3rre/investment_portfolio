@@ -10,8 +10,10 @@ SAPPHIRE: Final = "#7dc4e4"
 GREEN: Final = "#a6da95"
 OVERLAY1: Final = "#8087a2"
 
-# Derived alpha variant for path fans / translucent traces
+# Derived alpha variants for path fans / translucent traces
 BLUE_ALPHA: Final = "rgba(138,173,244,0.15)"
+GREEN_ALPHA: Final = "rgba(166,218,149,0.15)"
+RED_ALPHA: Final = "rgba(237,135,150,0.15)"
 
 # Plotly color scales — Catppuccin Macchiato aligned
 # Diverging: correlation matrices (-1 → 0 → +1)

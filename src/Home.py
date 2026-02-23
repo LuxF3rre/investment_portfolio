@@ -52,6 +52,18 @@ compute Greeks, visualize price sensitivity surfaces, back out
 implied volatility, and explore extensions (dividends, binary options,
 FX options, perpetual American put).
 *Example: "What's a 1-year AAPL call worth at strike $150?"*
+
+**GPV Option Pricing** — Price options under stochastic volatility
+using the Gaussian Polynomial Volatility model with realistic
+implied volatility smiles and analytical VIX formulas.
+*Example: "How does roughness affect option prices and the VIX?"*
+
+**Cash Flow Analysis** — Compute the full family of Internal Rate of
+Return metrics (IRR, XIRR, MIRR, GIRR, FREQ, AIRR, Horizon IRR) with
+an interactive NPV profile chart. Handles multiple roots, irregular
+dates, and mutually exclusive project comparisons.
+*Example: "What's the true return on a project with mixed inflows
+and outflows?"*
 """
     )
 
@@ -194,6 +206,27 @@ configurable Hurst parameter, correlation, and polynomial degree.
 **Use when:** You want to go beyond flat-vol pricing to capture volatility
 skew and smile effects, compare stochastic-vol prices against Black-Scholes,
 or explore how kernel choice and roughness affect option values and the VIX.
+"""
+    )
+
+with st.expander("About Cash Flow Analysis"):
+    st.markdown(
+        """
+Computes the full family of **Internal Rate of Return** metrics for any
+cash flow stream: **IRR** (all roots), **XIRR** (irregular dates),
+**MIRR** (separate finance/reinvestment rates), **GIRR** (Kulakov & Kastro
+2015 — unique two-rate project balance), **FREQ** (Teichroew et al. 1965 —
+unique two-rate account balance), **AIRR** (Magni 2010 — always exists,
+scale-aware), and **Horizon IRR** (value-at-horizon approach).
+
+The interactive **NPV Profile** chart plots NPV as a function of discount
+rate, marking every zero crossing (IRR root) and overlaying the positions of
+all variant metrics. Includes pairwise (incremental) IRR for comparing
+mutually exclusive projects.
+
+**Use when:** You want to evaluate an investment's return beyond simple IRR,
+handle non-conventional cash flows with multiple sign changes, compare
+competing projects, or understand why different return metrics disagree.
 """
     )
 
