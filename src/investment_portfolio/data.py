@@ -32,6 +32,10 @@ def fetch_history(*, ticker: str, period: str = "max") -> pd.DataFrame:
         msg = f"no data returned for ticker={ticker!r}, period={period!r}"
         raise ValueError(msg)
 
+    if "Close" not in raw.columns:
+        msg = f"downloaded data for ticker={ticker!r} has no 'Close' column"
+        raise ValueError(msg)
+
     df = raw[["Close"]].copy()
     df.columns = ["Close"]
     df.index.name = "Date"

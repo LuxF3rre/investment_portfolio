@@ -263,7 +263,7 @@ def optimize_portfolio(
 
     port_return = float(mu @ w_arr) * ann_factor
     port_vol = float(np.sqrt(w_arr @ cov_mat @ w_arr)) * math.sqrt(ann_factor)
-    sharpe = (port_return - rf) / port_vol if port_vol > 0 else 0.0
+    sharpe = (port_return - rf) / port_vol if port_vol > 0 else float("nan")
 
     return PortfolioResult(
         weights=weights_dict,

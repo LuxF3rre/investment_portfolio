@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from investment_portfolio.gpv import GPVModelConfig, KernelType
+
 
 @pytest.fixture
 def rng() -> np.random.Generator:
@@ -60,3 +62,19 @@ def multi_asset_prices() -> pd.DataFrame:
     prices_arr = 100.0 * np.cumprod(1 + correlated, axis=0)
     index = pd.bdate_range(start="2019-01-02", periods=n)
     return pd.DataFrame(prices_arr, index=index, columns=pd.Index(tickers))
+
+
+@pytest.fixture
+def gpv_config() -> GPVModelConfig:
+    """Default GPV model config with exponential kernel."""
+    maturities = np.linspace(0.01, 2.0, 50)
+    xi_0 = np.full(50, 0.04)  # flat 20% vol
+    return GPVModelConfig(
+        kernel_type=KernelType.EXPONENTIAL,
+        hurst=0.5,
+        poly_coeffs=(1.0,),
+        xi_0=xi_0,
+        maturities=maturities,
+        rho=-0.7,
+        epsilon=0.1,
+    )

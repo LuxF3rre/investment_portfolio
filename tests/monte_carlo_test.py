@@ -164,14 +164,14 @@ class TestCalculateAnnualizedVolatility:
         vol = calculate_annualized_volatility(prices=sample_prices)
         assert isinstance(vol, float)
 
-    def test_fewer_than_two_observations_raises(self) -> None:
+    def test_fewer_than_min_observations_raises(self) -> None:
         prices = pd.Series([100.0], index=pd.bdate_range("2024-01-02", periods=1))
-        with pytest.raises(ValueError, match="at least 2 observations"):
+        with pytest.raises(ValueError, match="at least 20 observations"):
             calculate_annualized_volatility(prices=prices)
 
     def test_empty_series_raises(self) -> None:
         prices = pd.Series([], dtype=float, index=pd.DatetimeIndex([]))
-        with pytest.raises(ValueError, match="at least 2 observations"):
+        with pytest.raises(ValueError, match="at least 20 observations"):
             calculate_annualized_volatility(prices=prices)
 
 

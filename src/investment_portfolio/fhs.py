@@ -20,6 +20,8 @@ import numpy as np
 import pandas as pd
 import scipy.stats
 
+from investment_portfolio._validation import validate_finite
+
 
 class FHSMethod(StrEnum):
     """FHS volatility-filtering method."""
@@ -113,8 +115,14 @@ def _ratio_scaling_method(
     """Practitioner FHS — scale multi-period returns by volatility ratio."""
     pct_returns = prices.pct_change().dropna()
 
-    current_volatility = float(
-        pct_returns.iloc[-volatility_window:].ewm(alpha=1 - ewma_decay).std().iloc[-1]
+    current_volatility = max(
+        float(
+            pct_returns.iloc[-volatility_window:]
+            .ewm(alpha=1 - ewma_decay)
+            .std()
+            .iloc[-1]
+        ),
+        1e-8,
     )
 
     price_vals = prices.values
@@ -237,6 +245,7 @@ def calculate_filtered_historical_returns(
     Raises:
         ValueError: If inputs are out of valid range.
     """
+    validate_finite(arr=prices.values, name="prices")
     if forecast_horizon <= 0:
         msg = "forecast_horizon must be positive"
         raise ValueError(msg)
@@ -354,6 +363,11 @@ def calculate_fhs_risk_metrics(
     time_horizon: float = 1.0,
 ) -> FHSRiskMetrics:
     """Derive risk metrics from FHS results.
+
+    VaR is the 5th percentile of returns (95% confidence).  CVaR (Expected
+    Shortfall) is the mean of all returns at or below the VaR threshold;
+    when ties exist at the threshold this may include slightly more than 5%
+    of observations.
 
     Args:
         filtered_returns: Array of filtered historical returns.

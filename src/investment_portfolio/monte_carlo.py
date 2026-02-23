@@ -17,7 +17,11 @@ from typing import Final
 import numpy as np
 import pandas as pd
 
-_MIN_OBSERVATIONS: Final = 2
+from investment_portfolio._validation import validate_finite
+
+_MIN_OBSERVATIONS: Final = 20
+_ANN_FACTOR_MIN: Final = 200.0
+_ANN_FACTOR_MAX: Final = 260.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,8 +179,9 @@ def calculate_annualized_volatility(*, prices: pd.Series) -> float:
         ValueError: If the price series has fewer than 2 observations.
     """
     if len(prices) < _MIN_OBSERVATIONS:
-        msg = "prices must have at least 2 observations"
+        msg = f"prices must have at least {_MIN_OBSERVATIONS} observations"
         raise ValueError(msg)
+    validate_finite(arr=prices.values, name="prices")
 
     daily_returns = prices.pct_change().dropna()
     daily_std = daily_returns.std()
@@ -186,6 +191,7 @@ def calculate_annualized_volatility(*, prices: pd.Series) -> float:
         ann_factor = 252.0
     else:
         ann_factor = (len(prices) - 1) * 365.25 / total_calendar_days
+    ann_factor = max(_ANN_FACTOR_MIN, min(ann_factor, _ANN_FACTOR_MAX))
 
     return float(daily_std * math.sqrt(ann_factor))
 
@@ -218,6 +224,11 @@ def calculate_simulation_risk_metrics(
 ) -> SimulationRiskMetrics:
     """Derive risk metrics from terminal price distribution.
 
+    VaR is the 5th percentile of returns (95% confidence).  CVaR (Expected
+    Shortfall) is the mean of all returns at or below the VaR threshold;
+    when ties exist at the threshold this may include slightly more than 5%
+    of observations.
+
     Args:
         terminal_prices: 1-D array of simulated terminal prices.
         current_price: Starting price.
@@ -227,13 +238,15 @@ def calculate_simulation_risk_metrics(
     Returns:
         Risk metrics.
     """
+    validate_finite(arr=terminal_prices, name="terminal_prices")
+
     returns = (terminal_prices - current_price) / current_price
 
     var_95 = float(np.percentile(returns, 5))
     cvar_95 = float(returns[returns <= var_95].mean())
 
     mean_return = float(returns.mean())
-    return_std = float(returns.std())
+    return_std = float(returns.std(ddof=1))
     eps: float = 1e-12
     rf_period = (1 + risk_free_rate) ** time_horizon - 1
     sharpe = (mean_return - rf_period) / return_std if return_std > eps else 0.0

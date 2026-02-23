@@ -4,6 +4,7 @@ __all__ = [
     "CODEPENDENCE_MEASURES",
     "HC_MODELS",
     "HC_RISK_MEASURES",
+    "KERNEL_TYPES",
     "LINKAGE_METHODS",
     "NCO_OBJECTIVES",
     "NCO_RISK_MEASURES",
@@ -14,8 +15,13 @@ __all__ = [
     "FHSMethod",
     "FHSPercentiles",
     "FHSRiskMetrics",
+    "ForwardVarianceCurve",
+    "GPVModelConfig",
+    "GPVOptionPrice",
+    "GPVSimulationResult",
     "Greeks",
     "HCResult",
+    "KernelType",
     "NCOResult",
     "OptionPrice",
     "PerpetualPutResult",
@@ -24,6 +30,7 @@ __all__ = [
     "RiskParityResult",
     "SimulationPercentiles",
     "SimulationRiskMetrics",
+    "VIXResult",
     "build_efficient_frontier",
     "build_portfolio",
     "calculate_annualized_volatility",
@@ -37,23 +44,31 @@ __all__ = [
     "calculate_simulation_percentiles",
     "calculate_simulation_risk_metrics",
     "compare_risk_budgets",
+    "compute_vix_squared",
     "fetch_history",
     "fetch_multi_history",
     "forecast_prices",
+    "forward_variance",
     "geometric_brownian_motion",
     "geometric_brownian_motion_paths",
     "implied_volatility",
+    "kernel_function",
+    "kernel_variance",
     "optimize_hierarchical_clustering",
     "optimize_nco",
     "optimize_portfolio",
     "optimize_risk_parity",
+    "polynomial_volatility",
     "preferred_solvers",
     "price_binary",
     "price_discrete_dividend",
     "price_european",
+    "price_european_gpv",
     "price_fx_option",
     "price_perpetual_put",
     "price_surface",
+    "simulate_gaussian_process",
+    "simulate_paths",
 ]
 
 from investment_portfolio.black_scholes import BinaryPrice as BinaryPrice
@@ -99,6 +114,23 @@ from investment_portfolio.fhs import (
 from investment_portfolio.fhs import (
     forecast_prices as forecast_prices,
 )
+from investment_portfolio.gpv import KERNEL_TYPES as KERNEL_TYPES
+from investment_portfolio.gpv import ForwardVarianceCurve as ForwardVarianceCurve
+from investment_portfolio.gpv import GPVModelConfig as GPVModelConfig
+from investment_portfolio.gpv import GPVOptionPrice as GPVOptionPrice
+from investment_portfolio.gpv import GPVSimulationResult as GPVSimulationResult
+from investment_portfolio.gpv import KernelType as KernelType
+from investment_portfolio.gpv import VIXResult as VIXResult
+from investment_portfolio.gpv import compute_vix_squared as compute_vix_squared
+from investment_portfolio.gpv import forward_variance as forward_variance
+from investment_portfolio.gpv import kernel_function as kernel_function
+from investment_portfolio.gpv import kernel_variance as kernel_variance
+from investment_portfolio.gpv import polynomial_volatility as polynomial_volatility
+from investment_portfolio.gpv import price_european_gpv as price_european_gpv
+from investment_portfolio.gpv import (
+    simulate_gaussian_process as simulate_gaussian_process,
+)
+from investment_portfolio.gpv import simulate_paths as simulate_paths
 from investment_portfolio.hcp import CODEPENDENCE_MEASURES as CODEPENDENCE_MEASURES
 from investment_portfolio.hcp import HC_MODELS as HC_MODELS
 from investment_portfolio.hcp import HC_RISK_MEASURES as HC_RISK_MEASURES
