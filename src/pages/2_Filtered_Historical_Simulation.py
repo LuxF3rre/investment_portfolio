@@ -18,6 +18,7 @@ from investment_portfolio.fhs import (
     calculate_return_statistics,
     forecast_prices,
 )
+from pages._theme import OVERLAY1, RED, SAPPHIRE, TEAL
 
 st.set_page_config(
     page_title="Filtered Historical Simulation",
@@ -302,7 +303,7 @@ with tab_ret:
             x=_filt,
             nbinsx=50,
             opacity=0.7,
-            marker_color="teal",
+            marker_color=TEAL,
             name="Filtered",
         ),
         row=1,
@@ -311,7 +312,7 @@ with tab_ret:
     fig2.add_vline(
         x=float(_filt.mean()),
         line_dash="dash",
-        line_color="#EF553B",
+        line_color=RED,
         annotation_text=f"Mean: {_filt.mean():.4f}",
         col=1,
     )
@@ -320,7 +321,7 @@ with tab_ret:
             x=_unfilt,
             nbinsx=50,
             opacity=0.7,
-            marker_color="steelblue",
+            marker_color=SAPPHIRE,
             name="Unfiltered",
         ),
         row=1,
@@ -329,7 +330,7 @@ with tab_ret:
     fig2.add_vline(
         x=float(_unfilt.mean()),
         line_dash="dash",
-        line_color="#EF553B",
+        line_color=RED,
         annotation_text=f"Mean: {_unfilt.mean():.4f}",
         col=2,
     )
@@ -347,7 +348,7 @@ with tab_dist:
             histnorm="probability density",
             opacity=0.7,
             name="Distribution",
-            marker_color="teal",
+            marker_color=TEAL,
         )
     )
     kde = gaussian_kde(_fc)
@@ -357,14 +358,14 @@ with tab_dist:
             x=x,
             y=kde(x),
             mode="lines",
-            line={"width": 2, "color": "#EF553B"},
+            line={"width": 2, "color": RED},
             name="KDE",
         )
     )
     fig3.add_vline(
         x=_cp,
         line_dash="dash",
-        line_color="gray",
+        line_color=OVERLAY1,
         annotation_text=f"Current: {_fmt_price(_cp)}",
     )
     fig3.update_layout(

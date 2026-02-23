@@ -15,6 +15,7 @@ from investment_portfolio.monte_carlo import (
     geometric_brownian_motion,
     geometric_brownian_motion_paths,
 )
+from pages._theme import BLUE, BLUE_ALPHA, OVERLAY1, RED
 
 st.set_page_config(
     page_title="Monte Carlo Simulation",
@@ -230,7 +231,7 @@ with tab_paths:
                 x=time_steps,
                 y=_paths[:, i],
                 mode="lines",
-                line={"width": 0.5, "color": "rgba(99,110,250,0.15)"},
+                line={"width": 0.5, "color": BLUE_ALPHA},
                 showlegend=False,
                 hoverinfo="skip",
             )
@@ -240,14 +241,14 @@ with tab_paths:
             x=time_steps,
             y=_paths.mean(axis=1),
             mode="lines",
-            line={"width": 2, "color": "#EF553B"},
+            line={"width": 2, "color": RED},
             name="Mean",
         )
     )
     fig.add_hline(
         y=_d["current_price"],
         line_dash="dash",
-        line_color="gray",
+        line_color=OVERLAY1,
         annotation_text=f"Current {_fmt_price(_d['current_price'])}",
     )
     fig.update_layout(
@@ -268,7 +269,7 @@ with tab_dist:
             histnorm="probability density",
             opacity=0.7,
             name="Distribution",
-            marker_color="rgb(99,110,250)",
+            marker_color=BLUE,
         )
     )
     kde = gaussian_kde(_tp)
@@ -278,14 +279,14 @@ with tab_dist:
             x=x,
             y=kde(x),
             mode="lines",
-            line={"width": 2, "color": "#EF553B"},
+            line={"width": 2, "color": RED},
             name="KDE",
         )
     )
     fig2.add_vline(
         x=_d["current_price"],
         line_dash="dash",
-        line_color="gray",
+        line_color=OVERLAY1,
         annotation_text=f"Current {_fmt_price(_d['current_price'])}",
     )
     fig2.update_layout(

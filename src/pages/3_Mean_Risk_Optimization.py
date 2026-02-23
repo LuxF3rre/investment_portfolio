@@ -14,6 +14,7 @@ from investment_portfolio.mpt import (
     fetch_multi_history,
     optimize_portfolio,
 )
+from pages._theme import BLUE, RED, TEAL
 
 _MIN_ACTIVE_WEIGHT: float = 0.005
 
@@ -440,7 +441,7 @@ with tab_frontier:
             x=_d["frontier_risks"],
             y=_d["frontier_rets"],
             mode="lines",
-            line={"width": 2, "color": "rgb(99,110,250)"},
+            line={"width": 2, "color": BLUE},
             name="Efficient Frontier",
         )
     )
@@ -465,7 +466,7 @@ with tab_frontier:
             x=[_result.volatility],
             y=[_result.expected_return],
             mode="markers",
-            marker={"size": 18, "symbol": "star", "color": "#EF553B"},
+            marker={"size": 18, "symbol": "star", "color": RED},
             name="Optimal Portfolio",
         )
     )
@@ -487,7 +488,7 @@ with tab_weights:
         go.Bar(
             x=names,
             y=vals,
-            marker_color="teal",
+            marker_color=TEAL,
             text=[f"{v:.1%}" for v in vals],
             textposition="outside",
         )
@@ -499,6 +500,8 @@ with tab_weights:
         height=400,
     )
     st.plotly_chart(fig_w, width="stretch")
+    df_w = pd.DataFrame({"Ticker": names, "Weight": [f"{v:.2%}" for v in vals]})
+    st.dataframe(df_w, hide_index=True, width="stretch")
 
 with tab_corr:
     _prices = _d["prices"]
@@ -531,7 +534,7 @@ with tab_stats:
                 "Annualized Volatility": (f"{s['annualized_volatility']:.2%}"),
             }
         )
-    st.table(pd.DataFrame(rows))
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
 st.divider()
 st.markdown(

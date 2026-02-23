@@ -10,6 +10,7 @@ from scipy.cluster.hierarchy import dendrogram
 from investment_portfolio.hcp import CODEPENDENCE_MEASURES, LINKAGE_METHODS
 from investment_portfolio.mpt import calculate_asset_statistics, fetch_multi_history
 from investment_portfolio.nco import NCO_OBJECTIVES, NCO_RISK_MEASURES, optimize_nco
+from pages._theme import TEAL
 
 _MIN_ACTIVE_WEIGHT: float = 0.005
 
@@ -434,7 +435,7 @@ with tab_dendro:
                 x=xs,
                 y=ys,
                 mode="lines",
-                line={"color": "teal", "width": 1.5},
+                line={"color": TEAL, "width": 1.5},
                 showlegend=False,
                 hoverinfo="skip",
             )
@@ -468,7 +469,7 @@ with tab_weights:
         go.Bar(
             x=names,
             y=vals,
-            marker_color="teal",
+            marker_color=TEAL,
             text=[f"{v:.1%}" for v in vals],
             textposition="outside",
         )
@@ -480,6 +481,8 @@ with tab_weights:
         height=400,
     )
     st.plotly_chart(fig_w, width="stretch")
+    df_w = pd.DataFrame({"Ticker": names, "Weight": [f"{v:.2%}" for v in vals]})
+    st.dataframe(df_w, hide_index=True, width="stretch")
 
 with tab_corr:
     _prices = _d["prices"]
@@ -512,7 +515,7 @@ with tab_stats:
                 "Annualized Volatility": f"{s['annualized_volatility']:.2%}",
             }
         )
-    st.table(pd.DataFrame(rows))
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
 st.divider()
 st.markdown(

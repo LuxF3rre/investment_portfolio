@@ -17,10 +17,11 @@ from investment_portfolio.gpv import (
     price_european_gpv,
     simulate_paths,
 )
+from pages._theme import BLUE, OVERLAY1, RED
 
 st.set_page_config(
     page_title="GPV Option Pricing",
-    page_icon=":chart_with_upwards_trend:",
+    page_icon=":crystal_ball:",
     layout="wide",
 )
 
@@ -362,7 +363,7 @@ with tab_price_paths:
     fig.add_hline(
         y=_d["strike"],
         line_dash="dash",
-        line_color="red",
+        line_color=RED,
         annotation_text=f"Strike {_d['strike']:.2f}",
     )
     fig.update_layout(
@@ -385,7 +386,7 @@ with tab_fwd_var:
             y=_fv.values,
             mode="lines",
             name="xi_0(u)",
-            line={"width": 2, "color": "#636EFA"},
+            line={"width": 2, "color": BLUE},
         )
     )
     fig.update_layout(
@@ -432,7 +433,7 @@ with tab_vix:
             y=k_vals,
             mode="lines",
             name="K(t)",
-            line={"width": 2, "color": "#EF553B"},
+            line={"width": 2, "color": RED},
         )
     )
     fig.update_layout(
@@ -497,13 +498,13 @@ with tab_smile:
                 y=valid_iv,
                 mode="lines+markers",
                 name="GPV Implied Vol",
-                line={"width": 2, "color": "#636EFA"},
+                line={"width": 2, "color": BLUE},
             )
         )
         fig.add_vline(
             x=_spot,
             line_dash="dash",
-            line_color="gray",
+            line_color=OVERLAY1,
             annotation_text=f"Spot {_spot:.2f}",
         )
         fig.update_layout(

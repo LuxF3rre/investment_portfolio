@@ -8,6 +8,7 @@ import streamlit as st
 
 from investment_portfolio.mpt import calculate_asset_statistics, fetch_multi_history
 from investment_portfolio.rp import RP_RISK_MEASURES, optimize_risk_parity
+from pages._theme import TEAL
 
 _MIN_ACTIVE_WEIGHT: float = 0.005
 
@@ -377,7 +378,7 @@ with tab_weights:
         go.Bar(
             x=names,
             y=vals,
-            marker_color="teal",
+            marker_color=TEAL,
             text=[f"{v:.1%}" for v in vals],
             textposition="outside",
         )
@@ -389,6 +390,8 @@ with tab_weights:
         height=400,
     )
     st.plotly_chart(fig_w, width="stretch")
+    df_w = pd.DataFrame({"Ticker": names, "Weight": [f"{v:.2%}" for v in vals]})
+    st.dataframe(df_w, hide_index=True, width="stretch")
 
 with tab_corr:
     _prices = _d["prices"]
@@ -421,7 +424,7 @@ with tab_stats:
                 "Annualized Volatility": f"{s['annualized_volatility']:.2%}",
             }
         )
-    st.table(pd.DataFrame(rows))
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
 st.divider()
 st.markdown(

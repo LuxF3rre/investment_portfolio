@@ -17,10 +17,11 @@ from investment_portfolio.black_scholes import (
     price_perpetual_put,
     price_surface,
 )
+from pages._theme import BLUE, GREEN, OVERLAY1, RED
 
 st.set_page_config(
     page_title="Black-Scholes Option Pricing",
-    page_icon=":chart_with_downwards_trend:",
+    page_icon=":heavy_dollar_sign:",
     layout="wide",
 )
 
@@ -285,7 +286,7 @@ with tab_greeks:
                 "Put": f"{getattr(_pg, name):.6f}",
             }
         )
-    st.table(pd.DataFrame(rows))
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
     # Greeks vs. spot charts
     st.subheader("Greeks vs. Spot Price")
@@ -329,7 +330,7 @@ with tab_greeks:
                 y=call_vals,
                 mode="lines",
                 name="Call",
-                line={"width": 2, "color": "#636EFA"},
+                line={"width": 2, "color": BLUE},
             )
         )
         fig.add_trace(
@@ -338,13 +339,13 @@ with tab_greeks:
                 y=put_vals,
                 mode="lines",
                 name="Put",
-                line={"width": 2, "color": "#EF553B"},
+                line={"width": 2, "color": RED},
             )
         )
         fig.add_vline(
             x=_strike,
             line_dash="dash",
-            line_color="gray",
+            line_color=OVERLAY1,
             annotation_text=f"Strike {_strike:.2f}",
         )
         fig.update_layout(
@@ -500,7 +501,7 @@ with tab_perpetual:
                 y=pp_values,
                 mode="lines",
                 name="Perpetual Put",
-                line={"width": 2, "color": "#636EFA"},
+                line={"width": 2, "color": BLUE},
             )
         )
         fig.add_trace(
@@ -509,13 +510,13 @@ with tab_perpetual:
                 y=[max(_d["strike"] - s, 0) for s in pp_spot_range],
                 mode="lines",
                 name="Intrinsic (K - S)",
-                line={"width": 1, "dash": "dash", "color": "#EF553B"},
+                line={"width": 1, "dash": "dash", "color": RED},
             )
         )
         fig.add_vline(
             x=pp.exercise_boundary,
             line_dash="dash",
-            line_color="green",
+            line_color=GREEN,
             annotation_text=f"S* = {pp.exercise_boundary:.2f}",
         )
         fig.update_layout(

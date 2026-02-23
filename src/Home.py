@@ -178,6 +178,25 @@ dividend-paying assets, currencies, and digital options.
 """
     )
 
+with st.expander("About GPV Option Pricing"):
+    st.markdown(
+        """
+Prices options using the **Gaussian Polynomial Volatility (GPV)** stochastic
+volatility model (Bonesini, Callegaro & Grasselli, 2022). Unlike Black-Scholes
+which assumes constant volatility, GPV models volatility as a **polynomial
+function of a Gaussian Volterra process**, producing realistic implied volatility
+smiles and analytical VIX formulas.
+
+Supports multiple kernels \u2014 **Exponential** (Markovian, best performer),
+**Fractional**, **Log-modulated**, and **Shifted Fractional** \u2014 with
+configurable Hurst parameter, correlation, and polynomial degree.
+
+**Use when:** You want to go beyond flat-vol pricing to capture volatility
+skew and smile effects, compare stochastic-vol prices against Black-Scholes,
+or explore how kernel choice and roughness affect option values and the VIX.
+"""
+    )
+
 st.divider()
 st.markdown(
     "<div style='text-align: center'>Made with ❤ by Maurycy Blaszczak"
