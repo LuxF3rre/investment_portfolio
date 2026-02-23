@@ -15,7 +15,7 @@ from investment_portfolio.monte_carlo import (
     geometric_brownian_motion,
     geometric_brownian_motion_paths,
 )
-from pages._theme import BLUE, BLUE_ALPHA, OVERLAY1, RED
+from investment_portfolio.theme import BLUE, BLUE_ALPHA, OVERLAY1, RED
 
 st.set_page_config(
     page_title="Monte Carlo Simulation",

@@ -17,7 +17,7 @@ from investment_portfolio.black_scholes import (
     price_perpetual_put,
     price_surface,
 )
-from pages._theme import BLUE, GREEN, OVERLAY1, RED
+from investment_portfolio.theme import BLUE, GREEN, OVERLAY1, RED
 
 st.set_page_config(
     page_title="Black-Scholes Option Pricing",
@@ -169,25 +169,25 @@ future date?"**
 - No transaction costs or taxes.
 - Continuous trading is possible.
 
-**How to read the results:**
-- **Option Price tab** \u2014 call and put values with put-call parity verification
+**Core tabs** (use sidebar params + Run):
+- **Option Price** \u2014 call and put values with put-call parity verification
   and breakeven prices.
-- **Greeks tab** \u2014 sensitivity measures showing how the option price responds
+- **Greeks** \u2014 sensitivity measures showing how the option price responds
   to changes in spot price, volatility, time, and interest rates.
-- **Price Surface tab** \u2014 a heatmap of option value across different spot
+- **Price Surface** \u2014 a heatmap of option value across different spot
   prices and volatility levels.
-- **Implied Volatility tab** \u2014 back out the market's volatility expectation
+- **Implied Volatility** \u2014 back out the market's volatility expectation
   from an observed option price.
 
-**Extensions (new tabs):**
+**Extensions** (expanders below the tabs):
 - **Binary Options** \u2014 cash-or-nothing and asset-or-nothing digital options
   that pay a fixed amount or the asset value at expiry.
 - **Perpetual Put** \u2014 closed-form price for an American put with infinite
   expiration (no time decay).
 - **Discrete Dividends** \u2014 European option pricing with discrete
-  proportional dividend adjustments.
+  proportional dividend adjustments (inline inputs + Compute).
 - **FX Options** \u2014 Garman-Kohlhagen (1983) model for currency options, using
-  domestic and foreign interest rates.
+  domestic and foreign interest rates (inline inputs + Compute).
 
 **The Greeks:**
 - **Delta (\u0394)** \u2014 price change per $1 move in the underlying.
@@ -221,20 +221,12 @@ c5.metric("Vega", f"{_cg.vega:.4f}")
     tab_greeks,
     tab_surface,
     tab_iv,
-    tab_binary,
-    tab_perpetual,
-    tab_discrete,
-    tab_fx,
 ) = st.tabs(
     [
         "Option Price",
         "Greeks",
         "Price Surface",
         "Implied Volatility",
-        "Binary Options",
-        "Perpetual Put",
-        "Discrete Dividends",
-        "FX Options",
     ]
 )
 
@@ -419,9 +411,12 @@ with tab_iv:
             st.error(f"Could not solve: {exc}")
 
 
-# ── Tab 5: Binary Options ───────────────────────────────────────────────────
-with tab_binary:
-    st.subheader("Binary (Digital) Options")
+# ── Extensions ──────────────────────────────────────────────────────────────
+st.divider()
+st.subheader("Extensions")
+
+# ── Binary Options ──────────────────────────────────────────────────────────
+with st.expander("Binary Options"):
     st.markdown(
         "Binary options pay a fixed amount (cash-or-nothing) or the asset "
         "value (asset-or-nothing) if the option expires in-the-money."
@@ -452,10 +447,8 @@ with tab_binary:
         f"(expected e^{{-rT}} = {_exp_disc:.6f})"
     )
 
-
-# ── Tab 6: Perpetual Put ────────────────────────────────────────────────────
-with tab_perpetual:
-    st.subheader("Perpetual American Put")
+# ── Perpetual Put ───────────────────────────────────────────────────────────
+with st.expander("Perpetual Put"):
     st.markdown(
         "Closed-form price for an American put with infinite expiration. "
         "Requires r > 0 (the formula diverges at r = 0)."
@@ -481,7 +474,7 @@ with tab_perpetual:
         pp_c3.metric("\u03bb\u2082", f"{pp.lambda_2:.4f}")
 
         # Chart: perpetual put value vs spot
-        st.subheader("Perpetual Put Value vs. Spot Price")
+        st.markdown("**Perpetual Put Value vs. Spot Price**")
         pp_spot_range = np.linspace(_d["strike"] * 0.2, _d["strike"] * 2.0, 200)
         pp_values = []
         for s in pp_spot_range:
@@ -526,10 +519,8 @@ with tab_perpetual:
         )
         st.plotly_chart(fig, width="stretch")
 
-
-# ── Tab 7: Discrete Dividends ───────────────────────────────────────────────
-with tab_discrete:
-    st.subheader("Discrete Proportional Dividends")
+# ── Discrete Dividends ──────────────────────────────────────────────────────
+with st.expander("Discrete Dividends"):
     st.markdown(
         "Adjusts the spot price by a proportional dividend factor: "
         "S_adj = S \u00d7 (1 \u2212 d)^n, then applies standard Black-Scholes."
@@ -586,10 +577,8 @@ with tab_discrete:
         ]
         st.table(pd.DataFrame(dd_rows))
 
-
-# ── Tab 8: FX Options ───────────────────────────────────────────────────────
-with tab_fx:
-    st.subheader("FX Options (Garman-Kohlhagen)")
+# ── FX Options ──────────────────────────────────────────────────────────────
+with st.expander("FX Options (Garman-Kohlhagen)"):
     st.markdown(
         "Prices currency options using domestic and foreign risk-free rates. "
         "The foreign rate acts as the continuous dividend yield."

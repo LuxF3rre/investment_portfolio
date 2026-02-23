@@ -15,7 +15,7 @@ from investment_portfolio.hcp import (
     optimize_hierarchical_clustering,
 )
 from investment_portfolio.mpt import calculate_asset_statistics, fetch_multi_history
-from pages._theme import TEAL
+from investment_portfolio.theme import COLORSCALE_DIVERGING, TEAL
 
 _MIN_ACTIVE_WEIGHT: float = 0.005
 
@@ -486,7 +486,7 @@ with tab_corr:
     fig_corr = px.imshow(
         corr_matrix,
         text_auto=".2f",
-        color_continuous_scale="RdYlGn",
+        color_continuous_scale=COLORSCALE_DIVERGING,
         zmin=-1,
         zmax=1,
         aspect="auto",

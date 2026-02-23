@@ -8,7 +8,7 @@ import streamlit as st
 
 from investment_portfolio.mpt import calculate_asset_statistics, fetch_multi_history
 from investment_portfolio.rp import RP_RISK_MEASURES, optimize_risk_parity
-from pages._theme import TEAL
+from investment_portfolio.theme import COLORSCALE_DIVERGING, TEAL
 
 _MIN_ACTIVE_WEIGHT: float = 0.005
 
@@ -401,7 +401,7 @@ with tab_corr:
     fig_corr = px.imshow(
         corr_matrix,
         text_auto=".2f",
-        color_continuous_scale="RdYlGn",
+        color_continuous_scale=COLORSCALE_DIVERGING,
         zmin=-1,
         zmax=1,
         aspect="auto",

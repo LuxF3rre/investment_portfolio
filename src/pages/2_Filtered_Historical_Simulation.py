@@ -18,7 +18,7 @@ from investment_portfolio.fhs import (
     calculate_return_statistics,
     forecast_prices,
 )
-from pages._theme import OVERLAY1, RED, SAPPHIRE, TEAL
+from investment_portfolio.theme import OVERLAY1, RED, SAPPHIRE, TEAL
 
 st.set_page_config(
     page_title="Filtered Historical Simulation",

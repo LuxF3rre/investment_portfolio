@@ -14,7 +14,7 @@ from investment_portfolio.mpt import (
     fetch_multi_history,
     optimize_portfolio,
 )
-from pages._theme import BLUE, RED, TEAL
+from investment_portfolio.theme import BLUE, COLORSCALE_DIVERGING, RED, TEAL
 
 _MIN_ACTIVE_WEIGHT: float = 0.005
 
@@ -511,7 +511,7 @@ with tab_corr:
     fig_corr = px.imshow(
         corr_matrix,
         text_auto=".2f",
-        color_continuous_scale="RdYlGn",
+        color_continuous_scale=COLORSCALE_DIVERGING,
         zmin=-1,
         zmax=1,
         aspect="auto",

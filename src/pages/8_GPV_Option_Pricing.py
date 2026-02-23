@@ -17,7 +17,7 @@ from investment_portfolio.gpv import (
     price_european_gpv,
     simulate_paths,
 )
-from pages._theme import BLUE, OVERLAY1, RED
+from investment_portfolio.theme import BLUE, OVERLAY1, RED
 
 st.set_page_config(
     page_title="GPV Option Pricing",
