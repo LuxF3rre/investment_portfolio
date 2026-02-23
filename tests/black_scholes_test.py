@@ -175,7 +175,6 @@ class TestPriceEuropean:
             ("strike", 0.0, "strike must be positive"),
             ("time_to_expiry", -0.1, "time_to_expiry must be positive"),
             ("time_to_expiry", 0.0, "time_to_expiry must be positive"),
-            ("risk_free_rate", -0.01, "risk_free_rate must be non-negative"),
             ("volatility", -0.1, "volatility must be positive"),
             ("volatility", 0.0, "volatility must be positive"),
         ],
@@ -192,6 +191,20 @@ class TestPriceEuropean:
         defaults[field] = value
         with pytest.raises(ValueError, match=match):
             price_european(**defaults)
+
+    def test_put_call_parity_negative_rate(self) -> None:
+        """Put-call parity holds with a negative risk-free rate."""
+        r = -0.01
+        result = price_european(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=r,
+            volatility=_REF_VOL,
+        )
+        lhs = result.call - result.put
+        rhs = _REF_S - _REF_K * math.exp(-r * _REF_T)
+        assert lhs == pytest.approx(rhs, abs=1e-10)
 
 
 class TestCalculateGreeks:
@@ -515,7 +528,6 @@ class TestImpliedVolatility:
             ("spot", 0.0, "spot must be positive"),
             ("strike", -1.0, "strike must be positive"),
             ("time_to_expiry", 0.0, "time_to_expiry must be positive"),
-            ("risk_free_rate", -0.01, "risk_free_rate must be non-negative"),
         ],
     )
     def test_invalid_inputs_raise(self, field: str, value: float, match: str) -> None:
@@ -531,6 +543,26 @@ class TestImpliedVolatility:
         defaults[field] = value
         with pytest.raises(ValueError, match=match):
             implied_volatility(**defaults)  # type: ignore[arg-type]
+
+    def test_round_trip_negative_rate(self) -> None:
+        """IV round-trip works with a negative risk-free rate."""
+        r = -0.005
+        op = price_european(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=r,
+            volatility=_REF_VOL,
+        )
+        iv = implied_volatility(
+            market_price=op.call,
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=r,
+            is_call=True,
+        )
+        assert iv == pytest.approx(_REF_VOL, abs=1e-6)
 
     def test_put_price_above_upper_bound_raises(self) -> None:
         """Put market price above discounted strike raises ValueError."""
@@ -705,7 +737,6 @@ class TestPriceSurface:
             ("strike", -1.0, "strike must be positive"),
             ("time_to_expiry", 0.0, "time_to_expiry must be positive"),
             ("time_to_expiry", -1.0, "time_to_expiry must be positive"),
-            ("risk_free_rate", -0.01, "risk_free_rate must be non-negative"),
         ],
     )
     def test_invalid_inputs_raise(self, field: str, value: float, match: str) -> None:
@@ -799,17 +830,25 @@ class TestContinuousDividend:
         assert with_zero.call == pytest.approx(standard.call, abs=1e-12)
         assert with_zero.put == pytest.approx(standard.put, abs=1e-12)
 
-    def test_negative_dividend_raises(self) -> None:
-        """Negative dividend_yield raises ValueError."""
-        with pytest.raises(ValueError, match="dividend_yield must be non-negative"):
-            price_european(
-                spot=_REF_S,
-                strike=_REF_K,
-                time_to_expiry=_REF_T,
-                risk_free_rate=_REF_R,
-                volatility=_REF_VOL,
-                dividend_yield=-0.01,
-            )
+    def test_negative_dividend_yield_works(self) -> None:
+        """Negative dividend_yield is accepted (e.g. FX negative foreign rate)."""
+        result = price_european(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+            dividend_yield=-0.01,
+        )
+        # Negative dividend increases call, decreases put vs q=0
+        no_div = price_european(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+        )
+        assert result.call > no_div.call
 
 
 class TestContinuousDividendGreeks:
@@ -1144,29 +1183,20 @@ class TestPriceFxOption:
         rhs = _REF_S * math.exp(-rf * _REF_T) - _REF_K * math.exp(-rd * _REF_T)
         assert lhs == pytest.approx(rhs, abs=1e-10)
 
-    def test_negative_domestic_rate_raises(self) -> None:
-        """Negative domestic rate raises ValueError."""
-        with pytest.raises(ValueError, match="domestic_rate must be non-negative"):
-            price_fx_option(
-                spot=_REF_S,
-                strike=_REF_K,
-                time_to_expiry=_REF_T,
-                domestic_rate=-0.01,
-                foreign_rate=0.02,
-                volatility=_REF_VOL,
-            )
-
-    def test_negative_foreign_rate_raises(self) -> None:
-        """Negative foreign rate raises ValueError."""
-        with pytest.raises(ValueError, match="foreign_rate must be non-negative"):
-            price_fx_option(
-                spot=_REF_S,
-                strike=_REF_K,
-                time_to_expiry=_REF_T,
-                domestic_rate=0.05,
-                foreign_rate=-0.01,
-                volatility=_REF_VOL,
-            )
+    def test_negative_rates_put_call_parity(self) -> None:
+        """Put-call parity holds with negative domestic and foreign rates."""
+        rd, rf = -0.005, -0.01
+        result = price_fx_option(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            domestic_rate=rd,
+            foreign_rate=rf,
+            volatility=_REF_VOL,
+        )
+        lhs = result.call - result.put
+        rhs = _REF_S * math.exp(-rf * _REF_T) - _REF_K * math.exp(-rd * _REF_T)
+        assert lhs == pytest.approx(rhs, abs=1e-10)
 
 
 class TestCalculateFxGreeks:
@@ -1199,31 +1229,29 @@ class TestCalculateFxGreeks:
         assert fx_g.vega == pytest.approx(eu_g.vega, abs=1e-12)
         assert fx_g.rho == pytest.approx(eu_g.rho, abs=1e-12)
 
-    def test_negative_domestic_rate_raises(self) -> None:
-        """Negative domestic rate raises ValueError."""
-        with pytest.raises(ValueError, match="domestic_rate must be non-negative"):
-            calculate_fx_greeks(
-                spot=_REF_S,
-                strike=_REF_K,
-                time_to_expiry=_REF_T,
-                domestic_rate=-0.01,
-                foreign_rate=0.02,
-                volatility=_REF_VOL,
-                is_call=True,
-            )
-
-    def test_negative_foreign_rate_raises(self) -> None:
-        """Negative foreign rate raises ValueError."""
-        with pytest.raises(ValueError, match="foreign_rate must be non-negative"):
-            calculate_fx_greeks(
-                spot=_REF_S,
-                strike=_REF_K,
-                time_to_expiry=_REF_T,
-                domestic_rate=0.05,
-                foreign_rate=-0.01,
-                volatility=_REF_VOL,
-                is_call=True,
-            )
+    def test_negative_rates_match_european_greeks(self) -> None:
+        """FX Greeks with negative rates match calculate_greeks with dividend."""
+        rd, rf = -0.005, -0.01
+        fx_g = calculate_fx_greeks(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            domestic_rate=rd,
+            foreign_rate=rf,
+            volatility=_REF_VOL,
+            is_call=True,
+        )
+        eu_g = calculate_greeks(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=rd,
+            volatility=_REF_VOL,
+            is_call=True,
+            dividend_yield=rf,
+        )
+        assert fx_g.delta == pytest.approx(eu_g.delta, abs=1e-12)
+        assert fx_g.gamma == pytest.approx(eu_g.gamma, abs=1e-12)
 
 
 class TestPricePerpetualPut:
@@ -1396,15 +1424,24 @@ class TestImpliedVolatilityWithDividend:
         )
         assert iv == pytest.approx(_REF_VOL, abs=1e-6)
 
-    def test_negative_dividend_raises(self) -> None:
-        """Negative dividend_yield raises ValueError."""
-        with pytest.raises(ValueError, match="dividend_yield must be non-negative"):
-            implied_volatility(
-                market_price=10.0,
-                spot=_REF_S,
-                strike=_REF_K,
-                time_to_expiry=_REF_T,
-                risk_free_rate=_REF_R,
-                is_call=True,
-                dividend_yield=-0.01,
-            )
+    def test_round_trip_negative_dividend(self) -> None:
+        """IV round-trip works with negative dividend_yield."""
+        q = -0.01
+        op = price_european(
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            volatility=_REF_VOL,
+            dividend_yield=q,
+        )
+        iv = implied_volatility(
+            market_price=op.call,
+            spot=_REF_S,
+            strike=_REF_K,
+            time_to_expiry=_REF_T,
+            risk_free_rate=_REF_R,
+            is_call=True,
+            dividend_yield=q,
+        )
+        assert iv == pytest.approx(_REF_VOL, abs=1e-6)

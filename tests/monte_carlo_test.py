@@ -1,5 +1,7 @@
 """Tests for the Monte Carlo simulation module."""
 
+import math
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -222,3 +224,23 @@ class TestCalculateSimulationRiskMetrics:
             terminal_prices=terminals, current_price=100.0
         )
         assert m.sharpe == 0.0
+
+    def test_sharpe_is_annualized(self, rng: np.random.Generator) -> None:
+        """Sharpe ratio is annualized via sqrt-of-time scaling."""
+        terminals = geometric_brownian_motion(
+            current_price=100.0,
+            annual_return=0.10,
+            annual_volatility=0.20,
+            time_horizon=2.0,
+            num_simulations=5000,
+            rng=rng,
+        )
+        m = calculate_simulation_risk_metrics(
+            terminal_prices=terminals,
+            current_price=100.0,
+            risk_free_rate=0.0,
+            time_horizon=2.0,
+        )
+        # Annualized Sharpe = (mean_return/T) / (return_std/sqrt(T))
+        expected = (m.mean_return / 2.0) / (m.return_std / math.sqrt(2.0))
+        assert m.sharpe == pytest.approx(expected, rel=1e-10)

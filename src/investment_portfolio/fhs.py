@@ -12,6 +12,7 @@ __all__ = [
     "forecast_prices",
 ]
 
+import math
 from dataclasses import dataclass
 from enum import StrEnum, auto
 from typing import assert_never
@@ -91,8 +92,8 @@ class FHSRiskMetrics:
         cvar_95: Conditional VaR (decimal fraction).
         expected_price: Expected forecasted price.
         expected_return: Mean filtered return.
-        return_std: Standard deviation of filtered returns.
-        sharpe: Sharpe ratio.
+        return_std: Standard deviation of filtered returns (holding-period).
+        sharpe: Annualized Sharpe ratio.
         prob_appreciation: Probability of price increase.
     """
 
@@ -385,8 +386,13 @@ def calculate_fhs_risk_metrics(
     mean_return = float(np.mean(filtered_returns))
     return_std = float(np.std(filtered_returns, ddof=1))
     eps: float = 1e-12
-    rf_period = (1 + risk_free_rate) ** time_horizon - 1
-    sharpe = (mean_return - rf_period) / return_std if return_std > eps else 0.0
+    annualized_mean = mean_return / time_horizon
+    annualized_std = return_std / math.sqrt(time_horizon)
+    sharpe = (
+        (annualized_mean - risk_free_rate) / annualized_std
+        if annualized_std > eps
+        else 0.0
+    )
 
     expected_price = float(np.mean(forecasted_prices))
     prob_appreciation = float((forecasted_prices > current_price).mean())

@@ -74,9 +74,9 @@ def _validate_inputs(
     spot: float,
     strike: float,
     time_to_expiry: float,
-    risk_free_rate: float,
+    risk_free_rate: float,  # noqa: ARG001
     volatility: float,
-    dividend_yield: float = 0.0,
+    dividend_yield: float = 0.0,  # noqa: ARG001
 ) -> None:
     if spot <= 0:
         msg = "spot must be positive"
@@ -87,14 +87,8 @@ def _validate_inputs(
     if time_to_expiry <= 0:
         msg = "time_to_expiry must be positive"
         raise ValueError(msg)
-    if risk_free_rate < 0:
-        msg = "risk_free_rate must be non-negative"
-        raise ValueError(msg)
     if volatility <= 0:
         msg = "volatility must be positive"
-        raise ValueError(msg)
-    if dividend_yield < 0:
-        msg = "dividend_yield must be non-negative"
         raise ValueError(msg)
 
 
@@ -311,12 +305,6 @@ def implied_volatility(
     if time_to_expiry <= 0:
         msg = "time_to_expiry must be positive"
         raise ValueError(msg)
-    if risk_free_rate < 0:
-        msg = "risk_free_rate must be non-negative"
-        raise ValueError(msg)
-    if dividend_yield < 0:
-        msg = "dividend_yield must be non-negative"
-        raise ValueError(msg)
 
     # Check arbitrage bounds (with dividend yield)
     discount = math.exp(-risk_free_rate * time_to_expiry)
@@ -421,9 +409,6 @@ def price_surface(
         raise ValueError(msg)
     if time_to_expiry <= 0:
         msg = "time_to_expiry must be positive"
-        raise ValueError(msg)
-    if risk_free_rate < 0:
-        msg = "risk_free_rate must be non-negative"
         raise ValueError(msg)
 
     grid = np.empty((len(volatilities), len(spots)))
@@ -586,13 +571,6 @@ def price_fx_option(
     Raises:
         ValueError: If any input is out of valid range.
     """
-    if domestic_rate < 0:
-        msg = "domestic_rate must be non-negative"
-        raise ValueError(msg)
-    if foreign_rate < 0:
-        msg = "foreign_rate must be non-negative"
-        raise ValueError(msg)
-
     return price_european(
         spot=spot,
         strike=strike,
@@ -630,13 +608,6 @@ def calculate_fx_greeks(
     Raises:
         ValueError: If any input is out of valid range.
     """
-    if domestic_rate < 0:
-        msg = "domestic_rate must be non-negative"
-        raise ValueError(msg)
-    if foreign_rate < 0:
-        msg = "foreign_rate must be non-negative"
-        raise ValueError(msg)
-
     return calculate_greeks(
         spot=spot,
         strike=strike,

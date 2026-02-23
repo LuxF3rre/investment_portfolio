@@ -601,6 +601,29 @@ class TestSimulatePaths:
         )
         np.testing.assert_array_equal(r1.price_paths, r2.price_paths)
 
+    def test_positive_rate_increases_mean_price(self) -> None:
+        """Positive risk-free rate increases mean terminal price."""
+        config = _make_config()
+        no_drift = simulate_paths(
+            config=config,
+            spot=100.0,
+            time_horizon=1.0,
+            num_steps=20,
+            num_simulations=5000,
+            risk_free_rate=0.0,
+            rng=np.random.default_rng(42),
+        )
+        with_drift = simulate_paths(
+            config=config,
+            spot=100.0,
+            time_horizon=1.0,
+            num_steps=20,
+            num_simulations=5000,
+            risk_free_rate=0.10,
+            rng=np.random.default_rng(42),
+        )
+        assert np.mean(with_drift.price_paths[-1]) > np.mean(no_drift.price_paths[-1])
+
     def test_invalid_spot_raises(self) -> None:
         """Non-positive spot raises ValueError."""
         config = _make_config()
@@ -746,6 +769,25 @@ class TestPriceEuropeanGPV:
         tol = 3.0 * max(result.call_std_error, result.put_std_error) + 1.0
         assert abs(lhs - rhs) < tol
 
+    def test_put_call_parity_with_nonzero_rate(self) -> None:
+        """Put-call parity C - P approx S - K*exp(-rT) for r > 0."""
+        config = _make_config()
+        r = 0.05
+        result = price_european_gpv(
+            config=config,
+            spot=100.0,
+            strike=100.0,
+            time_to_expiry=1.0,
+            risk_free_rate=r,
+            num_steps=50,
+            num_simulations=20_000,
+            rng=np.random.default_rng(42),
+        )
+        lhs = result.call - result.put
+        rhs = 100.0 - 100.0 * math.exp(-r * 1.0)
+        tol = 3.0 * max(result.call_std_error, result.put_std_error) + 1.0
+        assert abs(lhs - rhs) < tol
+
     def test_num_simulations_stored(self) -> None:
         """num_simulations is stored in result."""
         config = _make_config()
@@ -769,7 +811,6 @@ class TestPriceEuropeanGPV:
             ("strike", -1.0, "strike must be positive"),
             ("time_to_expiry", 0.0, "time_to_expiry must be positive"),
             ("time_to_expiry", -1.0, "time_to_expiry must be positive"),
-            ("risk_free_rate", -0.01, "risk_free_rate must be non-negative"),
         ],
     )
     def test_invalid_inputs_raise(self, field: str, value: float, match: str) -> None:

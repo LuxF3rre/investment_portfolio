@@ -50,10 +50,10 @@ class SimulationRiskMetrics:
     Attributes:
         var_95: Value at Risk at 95% confidence (5th percentile of returns).
         cvar_95: Conditional VaR (expected shortfall beyond VaR).
-        sharpe: Sharpe ratio.
+        sharpe: Annualized Sharpe ratio.
         prob_profit: Probability of positive return.
-        mean_return: Mean simulated return.
-        return_std: Standard deviation of simulated returns.
+        mean_return: Mean simulated return (holding-period).
+        return_std: Standard deviation of simulated returns (holding-period).
     """
 
     var_95: float
@@ -248,8 +248,13 @@ def calculate_simulation_risk_metrics(
     mean_return = float(returns.mean())
     return_std = float(returns.std(ddof=1))
     eps: float = 1e-12
-    rf_period = (1 + risk_free_rate) ** time_horizon - 1
-    sharpe = (mean_return - rf_period) / return_std if return_std > eps else 0.0
+    annualized_mean = mean_return / time_horizon
+    annualized_std = return_std / math.sqrt(time_horizon)
+    sharpe = (
+        (annualized_mean - risk_free_rate) / annualized_std
+        if annualized_std > eps
+        else 0.0
+    )
     prob_profit = float((terminal_prices > current_price).mean())
 
     return SimulationRiskMetrics(

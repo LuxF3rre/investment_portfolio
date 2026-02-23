@@ -52,6 +52,7 @@ __all__ = [
     "geometric_brownian_motion",
     "geometric_brownian_motion_paths",
     "implied_volatility",
+    "infer_ann_factor",
     "kernel_function",
     "kernel_variance",
     "optimize_hierarchical_clustering",
@@ -171,6 +172,7 @@ from investment_portfolio.mpt import (
     calculate_asset_statistics as calculate_asset_statistics,
 )
 from investment_portfolio.mpt import fetch_multi_history as fetch_multi_history
+from investment_portfolio.mpt import infer_ann_factor as infer_ann_factor
 from investment_portfolio.mpt import optimize_portfolio as optimize_portfolio
 from investment_portfolio.mpt import preferred_solvers as preferred_solvers
 from investment_portfolio.nco import NCO_OBJECTIVES as NCO_OBJECTIVES

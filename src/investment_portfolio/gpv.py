@@ -712,12 +712,15 @@ def simulate_paths(
     time_horizon: float,
     num_steps: int = 100,
     num_simulations: int = 10_000,
+    risk_free_rate: float = 0.0,
     rng: np.random.Generator | None = None,
 ) -> GPVSimulationResult:
     """Simulate asset price and volatility paths under the GPV model.
 
     Uses Euler-Maruyama discretization in log-space with correlated
-    Brownian motions.
+    Brownian motions.  When *risk_free_rate* is non-zero the drift
+    includes the risk-neutral term ``r * dt``, making the paths suitable
+    for derivative pricing via Monte Carlo.
 
     Args:
         config: GPV model configuration.
@@ -725,6 +728,8 @@ def simulate_paths(
         time_horizon: Simulation horizon in years (must be positive).
         num_steps: Number of time steps.
         num_simulations: Number of simulation paths.
+        risk_free_rate: Annualized risk-free rate for the risk-neutral
+            drift (default 0 gives physical-measure dynamics).
         rng: NumPy random Generator for reproducibility.
 
     Returns:
@@ -813,7 +818,9 @@ def simulate_paths(
         db_perp = rng.standard_normal(num_simulations) * sqrt_dt
         db = rho * dw + rho_bar * db_perp
 
-        log_prices[i + 1] = log_prices[i] - 0.5 * sigma**2 * dt + sigma * db
+        log_prices[i + 1] = (
+            log_prices[i] + (risk_free_rate - 0.5 * sigma**2) * dt + sigma * db
+        )
 
     price_paths = np.exp(log_prices)
 
@@ -876,6 +883,7 @@ def price_european_gpv(
         time_horizon=time_to_expiry,
         num_steps=num_steps,
         num_simulations=num_simulations,
+        risk_free_rate=risk_free_rate,
         rng=rng,
     )
 

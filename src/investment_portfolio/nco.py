@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 import riskfolio as rp
 
-from investment_portfolio.mpt import _infer_ann_factor
+from investment_portfolio.mpt import infer_ann_factor
 
 NCO_OBJECTIVES: dict[str, str] = {
     "Minimum Risk": "MinRisk",
@@ -137,7 +137,7 @@ def optimize_nco(
         RuntimeError: If the optimization fails to converge.
     """
     returns = prices.pct_change().dropna()
-    ann_factor = _infer_ann_factor(index=returns.index)
+    ann_factor = infer_ann_factor(index=returns.index)
 
     if rm in _EXP_POW_MEASURES:
         solver_rl = "MOSEK"

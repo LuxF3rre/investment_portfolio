@@ -9,6 +9,7 @@ from investment_portfolio.mpt import (
     build_efficient_frontier,
     calculate_asset_statistics,
     fetch_multi_history,
+    infer_ann_factor,
     optimize_portfolio,
 )
 
@@ -147,3 +148,15 @@ class TestCalculateAssetStatistics:
         for ticker_stats in stats.values():
             assert isinstance(ticker_stats["annualized_return"], float)
             assert isinstance(ticker_stats["annualized_volatility"], float)
+
+
+class TestInferAnnFactor:
+    def test_returns_near_252_for_business_day_index(self) -> None:
+        index = pd.bdate_range("2020-01-02", periods=504)
+        factor = infer_ann_factor(index=index)
+        assert 240 <= factor <= 270
+
+    def test_returns_trading_days_for_single_point(self) -> None:
+        index = pd.DatetimeIndex(["2024-01-02"])
+        factor = infer_ann_factor(index=index)
+        assert factor == 252.0

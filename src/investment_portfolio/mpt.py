@@ -8,6 +8,7 @@ __all__ = [
     "build_portfolio",
     "calculate_asset_statistics",
     "fetch_multi_history",
+    "infer_ann_factor",
     "optimize_portfolio",
     "preferred_solvers",
 ]
@@ -111,7 +112,7 @@ class PortfolioResult:
 # -- Helpers ------------------------------------------------------------------
 
 
-def _infer_ann_factor(*, index: pd.Index) -> float:
+def infer_ann_factor(*, index: pd.Index) -> float:
     """Infer the annualization factor from a DatetimeIndex.
 
     Computes the average number of observations per calendar year
@@ -150,7 +151,7 @@ def build_portfolio(
         RuntimeError: If asset statistics could not be computed.
     """
     returns = prices.pct_change().dropna()
-    ann_factor = _infer_ann_factor(index=returns.index)
+    ann_factor = infer_ann_factor(index=returns.index)
 
     port = rp.Portfolio(returns=returns)
     port.assets_stats(method_mu="hist", method_cov="hist", method_kurt="hist")
@@ -263,7 +264,7 @@ def optimize_portfolio(
 
     port_return = float(mu @ w_arr) * ann_factor
     port_vol = float(np.sqrt(w_arr @ cov_mat @ w_arr)) * math.sqrt(ann_factor)
-    sharpe = (port_return - rf) / port_vol if port_vol > 0 else float("nan")
+    sharpe = (port_return - rf) / port_vol if port_vol > 0 else 0.0
 
     return PortfolioResult(
         weights=weights_dict,
@@ -349,7 +350,7 @@ def calculate_asset_statistics(*, prices: pd.DataFrame) -> dict[str, dict[str, f
         Mapping of ticker to ``{"annualized_return": …, "annualized_volatility": …}``.
     """
     log_returns = np.log(prices / prices.shift(1)).dropna()
-    ann_factor = _infer_ann_factor(index=log_returns.index)
+    ann_factor = infer_ann_factor(index=log_returns.index)
     result: dict[str, dict[str, float]] = {}
     for col in prices.columns:
         ann_ret = float(log_returns[col].mean() * ann_factor)
