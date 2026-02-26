@@ -7,7 +7,6 @@ import streamlit as st
 
 from investment_portfolio.irr import (
     calculate_airr,
-    calculate_freq,
     calculate_girr,
     calculate_horizon_irr,
     calculate_irr,
@@ -15,7 +14,6 @@ from investment_portfolio.irr import (
     calculate_npv,
     calculate_npv_profile,
     calculate_pairwise_irr,
-    calculate_xirr,
 )
 from investment_portfolio.theme import (
     BLUE,
@@ -42,10 +40,8 @@ _MAUVE = "#c6a0f6"
 
 _MODES: dict[str, str] = {
     "IRR": "Internal Rate of Return",
-    "XIRR": "Extended IRR (irregular dates)",
     "MIRR": "Modified IRR",
     "GIRR": "Generalised IRR",
-    "FREQ": "FREQ / ERR",
     "AIRR": "Average IRR",
     "Horizon IRR": "Horizon IRR",
     "Pairwise IRR": "Pairwise IRR",
@@ -57,13 +53,6 @@ _MODE_HELP: dict[str, str] = {
         "Uses Descartes' rule to predict the number of roots "
         "and a fine sweep + Brent's method to locate each one.\n\n"
         "**No parameters** — IRR is fully determined by the cash flows."
-    ),
-    "XIRR": (
-        "Extended IRR for **irregularly spaced** cash flows. "
-        "Uses day-count fraction (Actual/365) instead of equal "
-        "periods. Solved via Newton's method with bisection fallback.\n\n"
-        "**No parameters** — enter dates alongside each cash flow in "
-        "the editor."
     ),
     "MIRR": (
         "Separates the **finance rate** (for negative CFs) from "
@@ -80,21 +69,14 @@ _MODE_HELP: dict[str, str] = {
         "that switches between an investment rate and a known "
         "finance rate. Solves for the investment rate that makes "
         "the terminal balance zero. Always unique.\n\n"
+        "Subsumes the FREQ / ERR model (Teichroew, Robichek & "
+        "Montalbano, 1965), which is mathematically identical. "
+        "For conventional cash flows, GIRR equals IRR.\n\n"
         "**Parameters:**\n"
         "- **Finance rate** — the external rate applied when the "
         "project balance is non-negative (excess cash reinvested "
         "externally). The solver finds the investment rate for "
         "periods when capital is tied up in the project."
-    ),
-    "FREQ": (
-        "**Teichroew, Robichek & Montalbano (1965)** — builds an "
-        "account balance using a two-rate model. Solves for the "
-        "rate applied when capital is tied up in the project. "
-        "For conventional CFs, FREQ equals IRR.\n\n"
-        "**Parameters:**\n"
-        "- **Borrowing rate** — the external rate applied when the "
-        "account balance is non-negative. Differs from GIRR only "
-        "when you set a different external rate."
     ),
     "AIRR": (
         "**Magni (2010)** — always exists, even when IRR does "
@@ -122,13 +104,13 @@ _MODE_HELP: dict[str, str] = {
     ),
     "Pairwise IRR": (
         "Computes the IRR of the **incremental** cash flows "
-        "(A \u2212 B) between two mutually exclusive projects. "
-        "If the pairwise IRR exceeds the cost of capital, "
-        "project A is preferred.\n\n"
+        "A \u2212 B between two mutually exclusive projects. "
+        "The preference is determined by the NPV of the "
+        "incremental stream at the cost of capital: if "
+        "NPV(A \u2212 B) > 0, project A is preferred.\n\n"
         "**Parameters:**\n"
-        "- **Cost of capital** — the hurdle rate for the decision rule. "
-        "If the pairwise IRR exceeds this rate, the incremental "
-        "investment in project A (over B) is worthwhile."
+        "- **Cost of capital** \u2014 the hurdle rate for the "
+        "decision rule."
     ),
 }
 
@@ -149,13 +131,8 @@ def _build_cf_editor(
     """Build a data editor for cash flows, optionally with dates."""
     st.markdown(f"**{label}**")
     if use_dates:
-        _months_per_year = 12
-        dates = [
-            f"2023-{1 + i:02d}-01"
-            if i < _months_per_year
-            else f"2024-{1 + i - _months_per_year:02d}-01"
-            for i in range(len(init_cf))
-        ]
+        _base_year = 2023
+        dates = [f"{_base_year + i}-01-01" for i in range(len(init_cf))]
         df = pd.DataFrame({"Date": dates, "Amount": init_cf})
     else:
         df = pd.DataFrame(
@@ -222,7 +199,12 @@ with st.sidebar:
     )
 
     st.header("Cash Flows")
-    use_dates = mode == "XIRR"
+    use_dates = st.toggle(
+        "Use dates",
+        value=False,
+        help="Switch from equal periods to irregular dates (actual/365). "
+        "Each metric uses day-count fractions natively.",
+    )
 
     is_pairwise = mode == "Pairwise IRR"
 
@@ -234,7 +216,7 @@ with st.sidebar:
         )
 
     # ── Mode-specific parameters ─────────────────────────────────────────
-    _HAS_PARAMS = {"MIRR", "GIRR", "FREQ", "AIRR", "Horizon IRR", "Pairwise IRR"}
+    _HAS_PARAMS = {"MIRR", "GIRR", "AIRR", "Horizon IRR", "Pairwise IRR"}
     if mode in _HAS_PARAMS:
         st.header("Parameters")
 
@@ -273,17 +255,8 @@ with st.sidebar:
             value=0.10,
             step=0.01,
             format="%.2f",
-            help="Rate applied during borrowing periods (B < 0).",
-        )
-    elif mode == "FREQ":
-        cost_of_capital = st.number_input(
-            "Borrowing rate",
-            min_value=0.0,
-            max_value=1.0,
-            value=0.10,
-            step=0.01,
-            format="%.2f",
-            help="Rate applied during borrowing periods (A < 0).",
+            help="Rate applied when project balance is non-negative "
+            "(surplus reinvested externally).",
         )
     elif mode == "AIRR":
         cost_of_capital = st.number_input(
@@ -369,31 +342,18 @@ if run:
 
     with st.spinner("Analysing\u2026"):
         # Always compute IRR + NPV profile (foundation for every mode)
-        irr_result = calculate_irr(cash_flows=cash_flows)
-        npv_profile = calculate_npv_profile(cash_flows=cash_flows)
+        irr_result = calculate_irr(cash_flows=cash_flows, dates=dates)
+        npv_profile = calculate_npv_profile(cash_flows=cash_flows, dates=dates)
 
         # Mode-specific computation
-        xirr_result = None
         mirr_result = None
         girr_result = None
-        freq_result = None
         airr_result = None
         horizon_irr_result = None
         pw_result = None
         cf_b: tuple[float, ...] | None = None
 
-        if mode == "XIRR":
-            if dates is None:
-                st.warning("XIRR requires dates for every cash flow.")
-            else:
-                try:
-                    xirr_result = calculate_xirr(
-                        cash_flows=cash_flows, dates=dates,
-                    )
-                except ValueError:
-                    st.warning("XIRR solver could not find a root.")
-
-        elif mode == "MIRR":
+        if mode == "MIRR":
             has_pos = any(x > 0 for x in cash_flows)
             has_neg = any(x < 0 for x in cash_flows)
             if has_pos and has_neg:
@@ -401,6 +361,7 @@ if run:
                     cash_flows=cash_flows,
                     finance_rate=finance_rate,
                     reinvestment_rate=reinvestment_rate,
+                    dates=dates,
                 )
             else:
                 st.warning("MIRR requires both positive and negative cash flows.")
@@ -410,28 +371,18 @@ if run:
                 girr_result = calculate_girr(
                     cash_flows=cash_flows,
                     finance_rate=finance_rate,
+                    dates=dates,
                 )
             except ValueError:
                 st.warning("GIRR solver could not find a root.")
 
-        elif mode == "FREQ":
-            try:
-                freq_result = calculate_freq(
-                    cash_flows=cash_flows,
-                    borrowing_rate=cost_of_capital,
-                )
-            except ValueError:
-                st.warning("FREQ solver could not find a root.")
-
         elif mode == "AIRR":
-            try:
-                airr_result = calculate_airr(
-                    cash_flows=cash_flows,
-                    cost_of_capital=cost_of_capital,
-                    depreciation=dep_key,
-                )
-            except ValueError:
-                st.warning("AIRR: PV of capital is zero (degenerate).")
+            airr_result = calculate_airr(
+                cash_flows=cash_flows,
+                cost_of_capital=cost_of_capital,
+                depreciation=dep_key,
+                dates=dates,
+            )
 
         elif mode == "Horizon IRR":
             n_periods = len(cash_flows) - 1
@@ -441,6 +392,7 @@ if run:
                         cash_flows=cash_flows,
                         horizon=horizon_period,
                         terminal_value=terminal_value,
+                        dates=dates,
                     )
                 except ValueError:
                     st.warning("Horizon IRR solver could not find a root.")
@@ -467,10 +419,8 @@ if run:
         "dates": dates,
         "irr_result": irr_result,
         "npv_profile": npv_profile,
-        "xirr_result": xirr_result,
         "mirr_result": mirr_result,
         "girr_result": girr_result,
-        "freq_result": freq_result,
         "airr_result": airr_result,
         "horizon_irr_result": horizon_irr_result,
         "pw_result": pw_result,
@@ -498,6 +448,10 @@ with st.expander(
 Pitfalls include multiple roots (Descartes' rule), no solution,
 unrealistic reinvestment assumptions, and scale independence.
 Each variant above resolves one or more of these issues.
+
+**Dates toggle** — enable *Use dates* for irregularly spaced
+cash flows. All discounting switches to actual/365 day count
+and the returned rates are annualised.
 """)
 
 if not _has_run:
@@ -511,10 +465,8 @@ _mode: str = _d["mode"]
 cash_flows = _d["cash_flows"]
 irr_result = _d["irr_result"]
 npv_profile = _d["npv_profile"]
-xirr_result = _d["xirr_result"]
 mirr_result = _d["mirr_result"]
 girr_result = _d["girr_result"]
-freq_result = _d["freq_result"]
 airr_result = _d["airr_result"]
 horizon_irr_result = _d["horizon_irr_result"]
 pw_result = _d["pw_result"]
@@ -541,14 +493,10 @@ c3.metric(
 )
 
 # Row 2: mode-specific headline metric
-if _mode == "XIRR" and xirr_result:
-    st.metric("XIRR", f"{xirr_result.rate:.4%}")
-elif _mode == "MIRR" and mirr_result:
+if _mode == "MIRR" and mirr_result:
     st.metric("MIRR", f"{mirr_result.rate:.4%}")
 elif _mode == "GIRR" and girr_result:
     st.metric("GIRR", f"{girr_result.rate:.4%}")
-elif _mode == "FREQ" and freq_result:
-    st.metric("FREQ", f"{freq_result.rate:.4%}")
 elif _mode == "AIRR" and airr_result:
     st.metric("AIRR", f"{airr_result.rate:.4%}")
 elif _mode == "Horizon IRR" and horizon_irr_result:
@@ -636,8 +584,6 @@ with tab_npv:
         _marker = ("MIRR", mirr_result.rate, GREEN, "square")
     elif _mode == "GIRR" and girr_result:
         _marker = ("GIRR", girr_result.rate, TEAL, "triangle-up")
-    elif _mode == "FREQ" and freq_result:
-        _marker = ("FREQ", freq_result.rate, SAPPHIRE, "star")
     elif _mode == "AIRR" and airr_result:
         _marker = ("AIRR", airr_result.rate, OVERLAY1, "cross")
     elif _mode == "Horizon IRR" and horizon_irr_result:
@@ -808,11 +754,6 @@ with tab_details:
     else:
         st.info("No IRR roots found in the search range.")
 
-    if xirr_result:
-        st.subheader("XIRR")
-        st.metric("XIRR", f"{xirr_result.rate:.4%}")
-        st.caption("Day count basis: actual/365")
-
     # Sign change analysis
     st.subheader("Sign Change Analysis")
     si = irr_result.sign_info
@@ -838,11 +779,11 @@ with tab_details:
             "|PV of negatives|",
             f"{abs(mirr_result.pv_negatives):,.2f}",
         )
-        mc3.metric("Periods (n)", str(mirr_result.num_periods))
+        mc3.metric("Time span", f"{mirr_result.time_span:.2f}")
         st.latex(
             r"\text{MIRR} = "
             r"\left(\frac{FV_{+}}{|PV_{-}|}\right)"
-            r"^{1/n} - 1 = "
+            r"^{1/T} - 1 = "
             f"{mirr_result.rate:.4%}"
         )
 
@@ -851,7 +792,7 @@ with tab_details:
         _pcol = _period_col(_dates)
         bal_data = []
         for t, b in enumerate(girr_result.balances):
-            phase = "Investment" if b >= 0 else "Borrowing"
+            phase = "Reinvestment" if b >= 0 else "Investment"
             bal_data.append(
                 {
                     _pcol: _period_label(t, _dates),
@@ -868,30 +809,6 @@ with tab_details:
             f"Investment rate (solved): {girr_result.rate:.4%} "
             f"| Finance rate (given): "
             f"{girr_result.finance_rate:.2%}"
-        )
-
-    elif _mode == "FREQ" and freq_result:
-        st.subheader("FREQ Account Balance")
-        _pcol = _period_col(_dates)
-        fbal_data = []
-        for t, b in enumerate(freq_result.balances):
-            phase = "Earning" if b >= 0 else "Borrowing"
-            fbal_data.append(
-                {
-                    _pcol: _period_label(t, _dates),
-                    "Balance": f"{b:,.2f}",
-                    "Phase": phase,
-                }
-            )
-        st.dataframe(
-            pd.DataFrame(fbal_data),
-            hide_index=True,
-            width="stretch",
-        )
-        st.caption(
-            f"FREQ (solved): {freq_result.rate:.4%} "
-            f"| Borrowing rate (given): "
-            f"{freq_result.borrowing_rate:.2%}"
         )
 
     elif _mode == "AIRR" and airr_result:
@@ -960,23 +877,20 @@ with tab_details:
 
     elif _mode == "Pairwise IRR" and pw_result:
         st.subheader("Pairwise IRR")
+        _pref = "A" if pw_result.prefer_a else "B"
+        _widget = st.success if pw_result.prefer_a else st.info
         if pw_result.rate is not None:
-            if pw_result.prefer_a:
-                st.success(
-                    f"Pairwise IRR ({pw_result.rate:.2%}) "
-                    f"> cost of capital "
-                    f"({pw_result.cost_of_capital:.2%}) "
-                    "\u2192 **Prefer Project A**"
-                )
-            else:
-                st.info(
-                    f"Pairwise IRR ({pw_result.rate:.2%}) "
-                    f"\u2264 cost of capital "
-                    f"({pw_result.cost_of_capital:.2%}) "
-                    "\u2192 **Prefer Project B**"
-                )
+            _widget(
+                f"Pairwise IRR = {pw_result.rate:.2%} | "
+                f"Cost of capital = {pw_result.cost_of_capital:.2%} "
+                f"\u2192 **Prefer Project {_pref}**"
+            )
         else:
-            st.warning("No pairwise IRR found for the incremental cash flows.")
+            _widget(
+                f"No pairwise IRR found. Decision based on NPV(A \u2212 B) "
+                f"at {pw_result.cost_of_capital:.2%} "
+                f"\u2192 **Prefer Project {_pref}**"
+            )
 
         st.markdown("**Incremental cash flows (A \u2212 B):**")
         _pcol = _period_col(_dates)

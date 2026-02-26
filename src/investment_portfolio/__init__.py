@@ -16,7 +16,6 @@ __all__ = [
     "FHSMethod",
     "FHSPercentiles",
     "FHSRiskMetrics",
-    "FREQResult",
     "ForwardVarianceCurve",
     "GIRRResult",
     "GPVModelConfig",
@@ -50,7 +49,6 @@ __all__ = [
     "calculate_fhs_percentiles",
     "calculate_fhs_risk_metrics",
     "calculate_filtered_historical_returns",
-    "calculate_freq",
     "calculate_fx_greeks",
     "calculate_girr",
     "calculate_greeks",
@@ -163,7 +161,6 @@ from investment_portfolio.hcp import (
     optimize_hierarchical_clustering as optimize_hierarchical_clustering,
 )
 from investment_portfolio.irr import AIRRResult as AIRRResult
-from investment_portfolio.irr import FREQResult as FREQResult
 from investment_portfolio.irr import GIRRResult as GIRRResult
 from investment_portfolio.irr import HorizonIRRResult as HorizonIRRResult
 from investment_portfolio.irr import IRRResult as IRRResult
@@ -174,7 +171,6 @@ from investment_portfolio.irr import SignChangeInfo as SignChangeInfo
 from investment_portfolio.irr import XIRRResult as XIRRResult
 from investment_portfolio.irr import analyze_sign_changes as analyze_sign_changes
 from investment_portfolio.irr import calculate_airr as calculate_airr
-from investment_portfolio.irr import calculate_freq as calculate_freq
 from investment_portfolio.irr import calculate_girr as calculate_girr
 from investment_portfolio.irr import (
     calculate_horizon_irr as calculate_horizon_irr,
