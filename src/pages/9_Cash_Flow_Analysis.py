@@ -437,22 +437,75 @@ _has_run: bool = (
 )
 
 
-# ── Educational expander ─────────────────────────────────────────────────────
+# ── Educational expanders ────────────────────────────────────────────────────
+with st.expander(
+    "Understanding IRR — overview & method guide", expanded=(not _has_run)
+):
+    st.markdown("""\
+### What is IRR?
+
+The **Internal Rate of Return** is the discount rate at which the Net Present
+Value (NPV) of a series of cash flows equals zero. It translates a stream of
+payments and receipts into a single percentage return, making it one of the most
+widely used metrics in capital budgeting, private equity, and project appraisal.
+
+### The problem with "plain" IRR
+
+While intuitive, classical IRR has well-known pitfalls:
+
+| Pitfall | Description |
+|---|---|
+| **Multiple roots** | Non-conventional cash flows (multiple sign changes) can yield several IRRs — or none at all. |
+| **Reinvestment assumption** | IRR implicitly assumes interim cash flows are reinvested *at the IRR itself*, which is often unrealistic. |
+| **Scale blindness** | IRR ignores the amount of capital invested — a 50 % return on € 100 is not the same as on € 1 M. |
+| **Timing ignorance** | Two projects with the same IRR can have very different value profiles over time. |
+
+Several refined metrics have been developed to address these issues. The table
+below summarises when each is most appropriate.
+
+### When to use which method
+
+| Method | Best for | Key advantage | Limitation |
+|---|---|---|---|
+| **IRR** | Conventional cash flows (one sign change) | Simple, intuitive, no parameters needed | Multiple or no solutions for non-conventional flows |
+| **MIRR** | When reinvestment / borrowing rates are known | Always unique; explicit reinvestment & finance rates | Requires two external rate assumptions |
+| **GIRR** | Non-conventional flows where you know the finance rate | Always unique; reduces to IRR for conventional flows | Requires a finance-rate assumption |
+| **AIRR** | Any cash-flow pattern, especially scale-sensitive decisions | Always exists; NPV-consistent; scale-aware | Requires a cost-of-capital assumption and a depreciation schedule |
+| **Horizon IRR** | Long-lived projects with uncertain far-future cash flows | Limits analysis to a credible forecast window | Requires a terminal-value estimate |
+| **Pairwise IRR** | Choosing between two mutually exclusive projects | Directly answers "which project is better?" | Only compares two projects at a time |
+
+### General recommendations
+
+1. **Start with IRR** for a quick sanity check. If the cash-flow pattern is
+   conventional (one negative outlay followed by positive inflows), IRR is
+   straightforward and sufficient.
+2. **Switch to MIRR or GIRR** when the cash flows change sign more than once,
+   or when the implicit reinvestment assumption of IRR is unrealistic.
+   MIRR is simpler (two rates); GIRR is more granular (project-balance approach).
+3. **Use AIRR** when you need a rate that is always NPV-consistent and
+   accounts for the scale of capital deployed. It is the most theoretically
+   robust single-rate metric.
+4. **Use Horizon IRR** when the project has a very long or indefinite life
+   and you only trust near-term forecasts.
+5. **Use Pairwise IRR** when ranking two mutually exclusive alternatives —
+   it avoids the pitfalls of comparing individual IRRs directly.
+
+In practice, reporting **more than one metric** (e.g. IRR + MIRR, or AIRR +
+NPV) gives the most complete picture and guards against the blind spots of any
+single measure.
+
+---
+
+**Dates toggle** — enable *Use dates* for irregularly spaced cash flows. All
+discounting switches to actual/365 day count and the returned rates are
+annualised.
+""")
+
 with st.expander(
     f"What is {_MODES.get(mode, mode)}?",
-    expanded=(not _has_run),
+    expanded=False,
 ):
     st.markdown(_MODE_HELP.get(mode, ""))
-    st.markdown("""\
-**General background** — IRR is the discount rate where NPV = 0.
-Pitfalls include multiple roots (Descartes' rule), no solution,
-unrealistic reinvestment assumptions, and scale independence.
-Each variant above resolves one or more of these issues.
-
-**Dates toggle** — enable *Use dates* for irregularly spaced
-cash flows. All discounting switches to actual/365 day count
-and the returned rates are annualised.
-""")
 
 if not _has_run:
     st.info("Select a mode, enter cash flows, and click **Run**.")
