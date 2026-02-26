@@ -43,8 +43,8 @@ _MODES: dict[str, str] = {
     "MIRR": "Modified IRR",
     "GIRR": "Generalised IRR",
     "AIRR": "Average IRR",
-    "Horizon IRR": "Horizon IRR",
-    "Pairwise IRR": "Pairwise IRR",
+    "Horizon IRR": "Truncated / Terminal-Value IRR",
+    "Pairwise IRR": "Incremental IRR (A vs B)",
 }
 
 _MODE_HELP: dict[str, str] = {
