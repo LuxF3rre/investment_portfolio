@@ -13,10 +13,12 @@ __all__ = [
     "RP_RISK_MEASURES",
     "AIRRResult",
     "BinaryPrice",
+    "ComparablesResult",
     "FHSMethod",
     "FHSPercentiles",
     "FHSRiskMetrics",
     "ForwardVarianceCurve",
+    "Fundamentals",
     "GIRRResult",
     "GPVModelConfig",
     "GPVOptionPrice",
@@ -27,14 +29,17 @@ __all__ = [
     "IRRResult",
     "KernelType",
     "MIRRResult",
+    "MultipleValuation",
     "NCOResult",
     "NPVProfile",
     "OptionPrice",
     "PairwiseIRRResult",
+    "PeerMultiple",
     "PerpetualPutResult",
     "PortfolioResult",
     "ReturnStatistics",
     "RiskParityResult",
+    "SensitivityRow",
     "SignChangeInfo",
     "SimulationPercentiles",
     "SimulationRiskMetrics",
@@ -46,6 +51,8 @@ __all__ = [
     "calculate_airr",
     "calculate_annualized_volatility",
     "calculate_asset_statistics",
+    "calculate_comparables",
+    "calculate_ev_ebitda_valuation",
     "calculate_fhs_percentiles",
     "calculate_fhs_risk_metrics",
     "calculate_filtered_historical_returns",
@@ -58,12 +65,16 @@ __all__ = [
     "calculate_npv",
     "calculate_npv_profile",
     "calculate_pairwise_irr",
+    "calculate_pb_valuation",
+    "calculate_pe_valuation",
+    "calculate_ps_valuation",
     "calculate_return_statistics",
     "calculate_simulation_percentiles",
     "calculate_simulation_risk_metrics",
     "calculate_xirr",
     "compare_risk_budgets",
     "compute_vix_squared",
+    "fetch_fundamentals",
     "fetch_history",
     "fetch_multi_history",
     "find_all_irr_roots",
@@ -134,6 +145,10 @@ from investment_portfolio.fhs import (
 )
 from investment_portfolio.fhs import (
     forecast_prices as forecast_prices,
+)
+from investment_portfolio.fundamentals import Fundamentals as Fundamentals
+from investment_portfolio.fundamentals import (
+    fetch_fundamentals as fetch_fundamentals,
 )
 from investment_portfolio.gpv import KERNEL_TYPES as KERNEL_TYPES
 from investment_portfolio.gpv import ForwardVarianceCurve as ForwardVarianceCurve
@@ -227,3 +242,22 @@ from investment_portfolio.rp import RP_RISK_MEASURES as RP_RISK_MEASURES
 from investment_portfolio.rp import RiskParityResult as RiskParityResult
 from investment_portfolio.rp import compare_risk_budgets as compare_risk_budgets
 from investment_portfolio.rp import optimize_risk_parity as optimize_risk_parity
+from investment_portfolio.valuation import ComparablesResult as ComparablesResult
+from investment_portfolio.valuation import MultipleValuation as MultipleValuation
+from investment_portfolio.valuation import PeerMultiple as PeerMultiple
+from investment_portfolio.valuation import SensitivityRow as SensitivityRow
+from investment_portfolio.valuation import (
+    calculate_comparables as calculate_comparables,
+)
+from investment_portfolio.valuation import (
+    calculate_ev_ebitda_valuation as calculate_ev_ebitda_valuation,
+)
+from investment_portfolio.valuation import (
+    calculate_pb_valuation as calculate_pb_valuation,
+)
+from investment_portfolio.valuation import (
+    calculate_pe_valuation as calculate_pe_valuation,
+)
+from investment_portfolio.valuation import (
+    calculate_ps_valuation as calculate_ps_valuation,
+)

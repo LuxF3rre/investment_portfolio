@@ -64,6 +64,10 @@ an interactive NPV profile chart. Handles multiple roots, irregular
 dates, and mutually exclusive project comparisons.
 *Example: "What's the true return on a project with mixed inflows
 and outflows?"*
+
+**Comparable Multiples** — Comparable multiples analysis using peer-group
+P/E, EV/EBITDA, P/B, and P/S ratios to estimate a stock's intrinsic value.
+*Example: "Is AAPL fairly priced compared to its peers?"*
 """
     )
 
@@ -227,6 +231,27 @@ mutually exclusive projects.
 **Use when:** You want to evaluate an investment's return beyond simple IRR,
 handle non-conventional cash flows with multiple sign changes, compare
 competing projects, or understand why different return metrics disagree.
+"""
+    )
+
+with st.expander("About Comparable Multiples"):
+    st.markdown(
+        """
+Estimates a stock's fair value using **comparable multiples** — the most
+widely used relative-valuation framework. Select a target company and a peer
+group, and the tool applies **P/E**, **EV/EBITDA**, **P/B**, and **P/S**
+multiples from the peer median to the target's fundamentals.
+
+Includes a "football field" chart showing implied price ranges across all
+multiples, a peer-comparison bar chart with a detailed fundamentals table,
+and a sensitivity analysis showing how the implied price changes as the
+applied multiple varies.
+
+Data is fetched live from yfinance.
+
+**Use when:** You want a quick, data-driven sanity check on whether a stock
+is cheap or expensive relative to its peer group — especially useful for
+screening and triangulating alongside DCF or other absolute-valuation methods.
 """
     )
 
