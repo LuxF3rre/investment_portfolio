@@ -1,0 +1,115 @@
+[project]
+name = "investment_portfolio"
+version = "0.1.0"
+description = "Investment portfolio analysis: Monte Carlo simulation, Filtered Historical Simulation, and Modern Portfolio Theory optimization"
+authors = [{ name = "Maurycy Blaszczak", email = "mgblaszczak@gmail.com" }]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.0",
+    "plotly>=6.0",
+    "matplotlib<3.10",  # pin needed until riskfolio-lib supports matplotlib 3.10+
+    "riskfolio-lib>=7.2.1",
+    "scipy>=1.14",
+    "streamlit>=1.54.0",
+    "yfinance>=1.2.0",
+    "pandas>=2.3.3",
+]
+
+[dependency-groups]
+dev = [
+    "prek>=0.3.3",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+    "pytest-xdist>=3.5.0",
+    "ruff>=0.15.2",
+    "ty>=0.0.18",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/investment_portfolio"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+lint.select = [
+    "A",
+    "ARG",
+    "B",
+    "C",
+    "DTZ",
+    "E",
+    "EM",
+    "F",
+    "FBT",
+    "I",
+    "ICN",
+    "ISC",
+    "N",
+    "PLC",
+    "PLE",
+    "PLR",
+    "PLW",
+    "Q",
+    "RUF",
+    "S",
+    "T",
+    "TID",
+    "UP",
+    "W",
+    "YTT",
+]
+lint.ignore = [
+    # Allow non-abstract empty methods in abstract base classes
+    "B027",
+    # Allow boolean positional values in function calls, like `dict.get(... True)`
+    "FBT003",
+    # Ignore checks for possible passwords
+    "S105",
+    "S106",
+    "S107",
+    # Ignore complexity
+    "C901",
+    "PLR0911",
+    "PLR0912",
+    "PLR0913",
+    "PLR0915",
+    "D211",    # no-blank-line-before-class
+    "D213",    # multi-line-summary-second-line`
+    "ISC001",  # single-line-implicit-string-concatenation solved by formatter
+    "N999",    # streamlit page titles
+    "UP007",   # issues with streamlit
+    "TID252",  # allow relative import for streamlit deployment
+]
+lint.unfixable = [
+    # Don't touch unused imports
+    "F401",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["investment_portfolio"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.per-file-ignores]
+# Tests can use magic values, assertions, and relative imports
+"tests/**/*" = ["PLR2004", "S101", "TID252"]
+
+"__init__.py" = ["F401", "PLC0414"]
+# Streamlit pages contain markdown strings with long table rows
+"src/pages/*" = ["E501"]
+
+[tool.pytest.ini_options]
+pythonpath = "src"
+
+[tool.coverage.run]
+omit = ["src/Home.py", "src/pages/*"]
+
+[tool.ty.environment]
+python-version = "3.12"
